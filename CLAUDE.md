@@ -23,5 +23,7 @@ are for agents working on the harness; the rules projects receive live in
 - Stage files by name, never `git add -A` or `git add .`: the sandbox shows empty
   placeholder files (`.bashrc`, `quality-gates.toml`, ...) that must not be committed.
 - Run checks with `make`; it sets a per-project uv cache that works in the sandbox.
+- Do not switch branches or pull when the change touches `.claude/`: the sandbox
+  blocks it partway. Ask the operator to do it.
 - This repo is public: never commit personal paths, hostnames, emails or tokens.
 - Ask the operator every question with the AskUserQuestion tool.

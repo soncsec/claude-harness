@@ -211,9 +211,62 @@ def writes_protected(command: str) -> bool:
     return False
 
 
+GIT_COMMIT_RX = re.compile(r"\bgit\b[^\n;&|]*\bcommit\b")
+MESSAGE_ARG_RX = re.compile(
+    r"""(\s(?:-m|--message)(?:\s+|=))("(?:[^"\\]|\\.)*"|'[^']*'|[^\s;&|]+)"""
+)
+STDIN_MESSAGE_RX = re.compile(r"\s(?:-F\s*|--file[= ])-(?=\s|$)")
+QUOTED_HEREDOC_RX = re.compile(r"(?<!<)<<-?\s*(['\"])(\w+)\1")
+PLAIN_HEREDOC_RX = re.compile(r"(?<!<)<<-?\s*(\w+)")
+EXPANSION_RX = re.compile(r"\$\(|`")
+
+
+def _drop_message(match: re.Match[str]) -> str:
+    message = match.group(2)
+    # Single quotes never expand; anything else is kept if it could run code.
+    if not message.startswith("'") and EXPANSION_RX.search(message):
+        return match.group(0)
+    return match.group(1) + "MSG"
+
+
+def strip_commit_messages(command: str) -> str:
+    """Remove git commit message text before checking: it is data, not a command.
+
+    Commit messages often name protected files ("update .claude/settings.json").
+    A message is kept, and so still checked, when it could run code: an unquoted
+    or double-quoted message, or an unquoted heredoc, containing $(...) or backticks.
+    """
+    lines = command.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if GIT_COMMIT_RX.search(line):
+            line = MESSAGE_ARG_RX.sub(_drop_message, line)
+            heredoc = QUOTED_HEREDOC_RX.search(line) or PLAIN_HEREDOC_RX.search(line)
+            if heredoc and STDIN_MESSAGE_RX.search(line):
+                quoted = heredoc.re is QUOTED_HEREDOC_RX
+                delimiter = heredoc.group(2) if quoted else heredoc.group(1)
+                end = next(
+                    (j for j in range(i + 1, len(lines)) if lines[j].strip() == delimiter),
+                    len(lines),
+                )
+                body = "\n".join(lines[i + 1 : end])
+                out.append(line)
+                if quoted or not EXPANSION_RX.search(body):
+                    out.append(delimiter)  # message dropped
+                else:
+                    out.extend(lines[i + 1 : end + 1])
+                i = end + 1
+                continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
+
+
 def check(command: str) -> str | None:
     """Return a reason to block the command, or None to let it run."""
-    joined = command.replace("\\\n", " ")
+    joined = strip_commit_messages(command.replace("\\\n", " "))
     flat = re.sub(r"[\"'\\]", "", joined)  # s"u"do -> sudo
 
     target = dangerous_rm(joined)
