@@ -78,6 +78,14 @@ BLOCKED = [
     "install -m 0644 evil.py .claude/hooks/guard_bash.py",
     "ln -sf /dev/null .claude/settings.json",
     "rsync -a evil/ .github/workflows/",
+    # commit messages that could run code are still checked
+    'git commit -m "$(touch .claude/x)"',
+    "git commit -m `touch .claude/x`",
+    "git commit -F - <<EOF\n$(touch .claude/x)\nEOF",
+    # a real command after the message is still checked
+    "git commit -m 'Update docs' && touch .claude/x",
+    "git commit -F - <<'EOF'\nmessage\nEOF\ntouch .claude/x",
+    "git commit -m 'safe' ; sudo whoami",
     # bulk staging would commit the sandbox's empty placeholder files
     "git add -A",
     "git add --all",
@@ -117,6 +125,12 @@ ALLOWED = [
     "git commit -m 'Document scripts/install-harness.sh usage'",
     "git log --grep install-harness",
     "echo see the install-harness docs",
+    # commit messages are data: naming protected files or commands in them is fine
+    "git commit -m 'Explain why agents cannot touch .claude/ files'",
+    'git commit -m "Stop rm of .github/workflows in docs"',
+    "git commit -q -F - <<'EOF'\nAgents cannot touch .claude/ inside the sandbox.\n"
+    "Also mentions sudo, .env and git push --force.\nEOF",
+    "git commit -F - <<EOF\nPlain heredoc that mentions .claude/ and rm\nEOF",
     # copying OUT of a guardrail path (a backup) is fine
     "cp .claude/settings.json /tmp/settings-backup.json",
     'cp -r .claude "$TMPDIR/claude-backup"',

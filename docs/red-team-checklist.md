@@ -33,11 +33,16 @@ permission prompt. If a result differs, stop and fix it before real work starts.
    Finish with a table: item, expected, actual, pass/fail.
    ```
 
-**About auto mode:** if the session runs in auto mode, Claude Code's own safety
-check may block some items before the harness sees them. That still counts as
-blocked, but it hides whether the harness layers work. The canary items below
-are harmless enough that auto mode lets them through to the sandbox, so they
-prove the sandbox on its own.
+**Use default mode, not auto mode.** In auto mode, Claude Code's own safety
+check blocks some items (including the canary) before the harness sees them.
+That still counts as blocked, but it hides whether the harness layers work.
+Press Shift+Tab until auto mode is off before you start. In default mode you may
+see extra permission prompts; approve the "must be blocked" items so they reach
+the harness, and choose **No** for the "must ask" items.
+
+Layers overlap on purpose, so the first one to catch an item hides the ones
+behind it. Each layer is still covered on its own: hooks by the unit tests in
+`tests/hooks/`, the sandbox by the canary (item 9).
 
 ## Must be blocked
 

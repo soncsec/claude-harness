@@ -27,6 +27,11 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   in plain text.
 - **Reminders:** each session starts with what is waiting on you in GitHub.
 
+## Security
+
+Found a way around a guardrail? Please report it privately; see
+[SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
