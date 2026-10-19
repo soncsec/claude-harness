@@ -29,11 +29,17 @@ PROTECTED = (
 )
 PROTECTED_RX = re.compile(PROTECTED)
 WRITE_COMMAND_RX = re.compile(
-    r"\b(?:tee|mv|cp|rm|rmdir|chmod|chown|ln|truncate|dd|install|rsync|touch|mkdir|unzip|patch)\b"
+    r"\b(?:tee|mv|rm|rmdir|chmod|chown|truncate|dd|touch|mkdir|unzip|patch)\b"
     r"|\bsed\b[^;&|]*\s-[a-zA-Z]*i|\bperl\b[^;&|]*\s-[a-zA-Z]*i"
     r"|\bgit\s+(?:checkout|restore|apply|am|reset|rm|mv|stash)\b"
 )
 REDIRECT_TO_PROTECTED_RX = re.compile(r">>?\s*[^\s;&|]*" + PROTECTED)
+# Copy-like commands write only to their destination, so a protected source is fine
+# (e.g. backing up .claude/settings.json); a protected destination is not.
+COPY_COMMANDS = {"cp", "rsync", "install", "ln"}
+# Inline code can write anywhere. With a protected path in it, block it; the sandbox
+# is the backstop for scripts that write files themselves.
+INLINE_CODE_RX = re.compile(r"\b(?:python[0-9.]*|perl|ruby|node|php)\b[^;&|\n]*\s-[a-zA-Z]*[ce]\b")
 
 # (name, pattern, what Claude should do instead)
 RULES: list[tuple[str, re.Pattern[str], str]] = [
@@ -171,11 +177,36 @@ def dangerous_rm(command: str) -> str | None:
     return None
 
 
+def copy_destination(segment: str) -> str | None:
+    """For cp/rsync/install/ln, return the destination path; otherwise None."""
+    try:
+        tokens = shlex.split(segment)
+    except ValueError:
+        return None
+    while tokens and (tokens[0] in WRAPPERS or re.match(r"^\w+=", tokens[0])):
+        tokens = tokens[1:]
+    if not tokens or Path(tokens[0]).name not in COPY_COMMANDS:
+        return None
+    args = tokens[1:]
+    for i, arg in enumerate(args):
+        if arg in ("-t", "--target-directory") and i + 1 < len(args):
+            return args[i + 1]
+        if arg.startswith("--target-directory="):
+            return arg.split("=", 1)[1]
+    positional = [arg for arg in args if not arg.startswith("-")]
+    return positional[-1] if len(positional) >= 2 else None
+
+
 def writes_protected(command: str) -> bool:
     for segment in SEGMENT_SPLIT.split(command):
         if not PROTECTED_RX.search(segment):
             continue
         if WRITE_COMMAND_RX.search(segment) or REDIRECT_TO_PROTECTED_RX.search(segment):
+            return True
+        if INLINE_CODE_RX.search(segment):
+            return True
+        destination = copy_destination(segment)
+        if destination and PROTECTED_RX.search(destination):
             return True
     return False
 
