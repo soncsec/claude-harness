@@ -47,6 +47,8 @@ def test_blocks_writes_to_guardrail_files(run_hook, tool, path):
         ("Grep", "~/.aws"),
         ("Glob", "~/.config/gh"),
         ("Read", "~/.docker/config.json"),
+        ("Read", "~/.config/claude-harness/agent-app.pem"),
+        ("Glob", "~/.config/claude-harness"),
     ],
 )
 def test_blocks_secret_files(run_hook, tool, path):

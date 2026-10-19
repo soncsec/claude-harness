@@ -48,7 +48,7 @@ SECRET_NAME_PATTERNS = (
 )
 
 # Secret locations in the user's home directory.
-SECRET_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".config/gh")
+SECRET_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".config/gh", ".config/claude-harness")
 SECRET_HOME_FILES = (".docker/config.json", ".claude/.credentials.json")
 
 PROPOSAL_HINT = (
