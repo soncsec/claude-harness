@@ -23,6 +23,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.cache/
 .mypy_cache/
 .coverage
 coverage.xml
@@ -35,3 +36,18 @@ build/
 .vscode/
 .idea/
 .DS_Store
+# >>> claude-harness >>>
+# Secrets: never commit. Document settings in env.example instead.
+.env
+.env.*
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+# Claude Code personal settings and local state
+.claude/settings.local.json
+.claude/worktrees/
+# Worktrees made by `make worktree`
+.worktrees/
+# <<< claude-harness <<<

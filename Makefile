@@ -3,6 +3,9 @@
 SHELL := /bin/bash
 UV ?= uv
 TARGET ?= .
+# Per-project uv cache: the sandbox blocks the shared ~/.cache/uv, and a shared
+# cache would let one project's agent plant packages another project installs.
+export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 
 .PHONY: help setup lint format test check doctor install-harness
 

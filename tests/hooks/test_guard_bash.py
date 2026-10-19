@@ -64,6 +64,16 @@ BLOCKED = [
     "git checkout -- .pre-commit-config.yaml",
     "tee .security/exceptions.yml < new.yml",
     "../claude-harness/scripts/install-harness.sh .",
+    "scripts/install-harness.sh --yes .",
+    "bash scripts/install-harness.sh .",
+    "make install-harness",
+    "make install-harness TARGET=../app",
+    # bulk staging would commit the sandbox's empty placeholder files
+    "git add -A",
+    "git add --all",
+    "git add .",
+    "git add :/",
+    "git status && git add . && git commit -m wip",
 ]
 
 ALLOWED = [
@@ -93,6 +103,14 @@ ALLOWED = [
     "echo 'su' > notes.txt",
     "cat config.keys.json",
     "export DEBUG=1 && make test",
+    # mentioning the installer is fine; only running it is blocked
+    "git commit -m 'Document scripts/install-harness.sh usage'",
+    "git log --grep install-harness",
+    "echo see the install-harness docs",
+    # staging by name is the expected way
+    "git add src/app.py tests/test_app.py",
+    "git add ./src",
+    "git commit -a -m wip",
 ]
 
 

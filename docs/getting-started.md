@@ -66,6 +66,19 @@ Start a new Claude Code session in the project and walk through
 [red-team-checklist.md](red-team-checklist.md). Every "must be blocked" item
 should be blocked. If one is not, stop and fix it before real work starts.
 
+## What you will notice inside the sandbox
+
+- **Empty placeholder files.** In a sandboxed session, `git status` shows empty files
+  such as `.bashrc`, `.gitconfig`, `.mcp.json` or `quality-gates.toml`. The sandbox
+  mounts them read-only over protected paths that do not exist yet, so nothing can
+  create them. They exist only inside the sandbox, not on your disk. Never commit
+  them: stage files by name. The Bash guard blocks `git add -A` and `git add .`.
+- **No shared caches.** Tools cannot write to caches in your home folder. The
+  Makefile gives uv a per-project cache in `.cache/uv`; run checks with `make`.
+- **No GitHub credentials.** Your `gh` login is unreadable inside the sandbox, so
+  agents cannot push or open pull requests with your account. Give agents their
+  own GitHub identity, or push yourself.
+
 ## Updating
 
 Pull the latest harness, then re-run the installer. Files you have not changed

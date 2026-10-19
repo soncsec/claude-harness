@@ -20,5 +20,8 @@ are for agents working on the harness; the rules projects receive live in
 - Shell scripts: bash, `set -euo pipefail`, shellcheck clean, Debian 13 first.
 - When a rule changes in `core/claude/settings.json`, update `_policy.py` and the
   docs to match (`docs/customizing.md`, `docs/red-team-checklist.md`).
+- Stage files by name, never `git add -A` or `git add .`: the sandbox shows empty
+  placeholder files (`.bashrc`, `quality-gates.toml`, ...) that must not be committed.
+- Run checks with `make`; it sets a per-project uv cache that works in the sandbox.
 - This repo is public: never commit personal paths, hostnames, emails or tokens.
 - Ask the operator every question with the AskUserQuestion tool.
