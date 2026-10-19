@@ -29,8 +29,9 @@ A small FastAPI service where users manage their own notes. It exists to show th
 - Stage files by name (`git add path/one path/two`), never `git add -A` or `git add .`:
   the sandbox shows empty placeholder files over protected paths, and they must
   never be committed. Run checks through `make`, not by calling tools directly.
-- Do not switch branches or pull when the change touches `.claude/`: the sandbox
-  blocks it partway. Ask the operator to do it.
+- Do not switch branches or pull when the change touches protected files
+  (`.claude/`, `.github/`, `quality-gates.toml`, `.security/`): the sandbox blocks
+  it partway. Ask the operator to do it.
 - New dependencies need the operator's approval. Check the package is real,
   maintained and spelled correctly before proposing it.
 

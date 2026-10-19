@@ -19,7 +19,7 @@ setup: ## Install Python and the dev tools (uses uv.lock)
 lint: ## Check code style, likely bugs, security patterns and shell scripts
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
-	$(UV) run shellcheck scripts/*.sh
+	$(UV) run shellcheck -x scripts/*.sh scripts/lib/*.sh
 
 format: ## Fix formatting and import order
 	$(UV) run ruff format .
