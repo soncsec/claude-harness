@@ -37,9 +37,15 @@ load_config() {
     || die "$KEY_FILE must be readable only by you: chmod 600 $KEY_FILE"
 
   while IFS= read -r line || [[ -n $line ]]; do
+    line=${line%$'\r'}  # tolerate Windows line endings
     [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
-    [[ $line =~ ^([A-Z_]+)=(.*)$ ]] || die "bad line in $CONFIG_FILE: $line"
-    key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]}
+    [[ $line =~ ^[[:space:]]*([A-Z_]+)[[:space:]]*=[[:space:]]*(.*[^[:space:]])?[[:space:]]*$ ]] \
+      || die "bad line in $CONFIG_FILE: $line"
+    key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]:-}
+    # tolerate one pair of surrounding quotes
+    if [[ $value =~ ^\"(.*)\"$ || $value =~ ^\'(.*)\'$ ]]; then
+      value=${BASH_REMATCH[1]}
+    fi
     case $key in
       CLIENT_ID)       CLIENT_ID=$value ;;
       INSTALLATION_ID) INSTALLATION_ID=$value ;;
@@ -49,10 +55,15 @@ load_config() {
     esac
   done < "$CONFIG_FILE"
 
-  [[ $CLIENT_ID =~ ^[A-Za-z0-9.]+$ ]] || die "CLIENT_ID is missing or malformed"
-  [[ $INSTALLATION_ID =~ ^[0-9]+$ ]] || die "INSTALLATION_ID must be a number"
-  [[ $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "REPO must look like owner/name"
-  [[ $APP_SLUG =~ ^[a-z0-9-]+$ ]] || die "APP_SLUG must be the app's lowercase name"
+  # None of these values are secret, so errors show what was found.
+  [[ $CLIENT_ID =~ ^[A-Za-z0-9.]+$ ]] \
+    || die "CLIENT_ID '$CLIENT_ID' is not valid: copy the Client ID (starts with Iv) from the app's settings page"
+  [[ $INSTALLATION_ID =~ ^[0-9]+$ ]] \
+    || die "INSTALLATION_ID '$INSTALLATION_ID' must be a number (end of the URL at github.com/settings/installations)"
+  [[ $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+    || die "REPO '$REPO' must look like owner/name"
+  [[ $APP_SLUG =~ ^[a-z0-9-]+$ ]] \
+    || die "APP_SLUG '$APP_SLUG' must be the app's lowercase name, as in its URL"
   BOT_NAME="${APP_SLUG}[bot]"
 }
 
@@ -71,15 +82,18 @@ make_jwt() {
 }
 
 # Call the GitHub API; prints the body, a newline, then the HTTP status.
-# Credentials go in a header file, never on the command line (no ps leaks).
+# The credential reaches curl through its config on stdin (--config -): never
+# on the command line (where `ps` shows it) and never in a file on disk.
 github_api() {
   local method=$1 path=$2 credential=${3:-} body=${4:-}
   local args=(-sS -X "$method" -w '\n%{http_code}'
               -H "Accept: application/vnd.github+json"
-              -H "X-GitHub-Api-Version: 2022-11-28")
-  [[ -n $credential ]] && args+=(-H @<(printf 'Authorization: Bearer %s\n' "$credential"))
+              -H "X-GitHub-Api-Version: 2022-11-28"
+              --config -)
   [[ -n $body ]] && args+=(-d "$body")
-  curl "${args[@]}" "$GITHUB_API$path"
+  local config=''
+  [[ -n $credential ]] && config="header = \"Authorization: Bearer $credential\""
+  printf '%s\n' "$config" | curl "${args[@]}" "$GITHUB_API$path"
 }
 
 json_field() { python3 -c 'import json,sys; print(json.loads(sys.stdin.read())[sys.argv[1]])' "$1"; }
@@ -90,7 +104,8 @@ mint_token() {
   local repo_name=${REPO#*/} body response status jwt
   jwt=$(make_jwt) || die "could not sign with $KEY_FILE; is it the app's private key?"
   body=$(printf '{"repositories":["%s"],"permissions":{"metadata":"read","contents":"write","pull_requests":"write","issues":"write","checks":"read","statuses":"read","actions":"read"}}' "$repo_name")
-  response=$(github_api POST "/app/installations/$INSTALLATION_ID/access_tokens" "$jwt" "$body")
+  response=$(github_api POST "/app/installations/$INSTALLATION_ID/access_tokens" "$jwt" "$body") \
+    || die "could not reach GitHub to mint a token (curl failed; see the message above)"
   status=${response##*$'\n'}
   response=${response%$'\n'*}
   [[ $status == 201 ]] || die "GitHub refused to mint a token (HTTP $status): $response"
@@ -107,7 +122,7 @@ revoke_token() {
 # The app's bot user, for labelling commits. Public data; no token needed.
 bot_identity() {
   local response status id
-  response=$(github_api GET "/users/${APP_SLUG}%5Bbot%5D")
+  response=$(github_api GET "/users/${APP_SLUG}%5Bbot%5D") || response=$'\n000'
   status=${response##*$'\n'}
   if [[ $status == 200 ]]; then
     id=$(printf '%s' "${response%$'\n'*}" | json_field id)

@@ -1,4 +1,9 @@
-"""agent-token.sh and agent-session.sh, run offline against a fake GitHub (a fake `curl`)."""
+"""agent-token.sh and agent-session.sh against a local fake GitHub, using the real curl.
+
+An earlier version passed its credential to curl in a way curl could not read,
+and a fake curl hid the bug. These tests use the real curl, so the request a
+real GitHub would receive is exactly what the fake server checks.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +13,9 @@ import os
 import shutil
 import stat
 import subprocess
-import sys
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -20,36 +26,63 @@ SESSION_SCRIPT = REPO / "scripts" / "agent-session.sh"
 GOOD_CONFIG = (
     "CLIENT_ID=Iv23liTEST123\nINSTALLATION_ID=12345\nREPO=owner/repo\nAPP_SLUG=test-agent\n"
 )
+REAL_CURL = shutil.which("curl")
 
-FAKE_CURL = """#!{python}
-# Stands in for curl talking to GitHub. Logs each call, answers like the real API.
-import json, sys
-args = sys.argv[1:]
-method = args[args.index("-X") + 1] if "-X" in args else "GET"
-url = [a for a in args if a.startswith("http")][-1]
-with open({log!r}, "a") as log:
-    log.write(" ".join(args) + "\\n")
-if method == "POST" and url.endswith("/access_tokens"):
-    with open({counter!r}, "a+") as counter:
-        counter.seek(0)
-        n = len(counter.read()) + 1
-        counter.write("x")
-    print(json.dumps({{"token": f"ghs_FAKE{{n}}", "expires_at": "2030-01-01T00:00:00Z"}}))
-    print(201)
-elif method == "GET" and "/users/" in url:
-    print(json.dumps({{"id": 4242}}))
-    print(200)
-elif method == "DELETE" and url.endswith("/installation/token"):
-    print("")
-    print(204)
-else:
-    print("{{}}")
-    print(404)
-"""
+
+class FakeGitHub(BaseHTTPRequestHandler):
+    """Answers the three calls the scripts make, like api.github.com would."""
+
+    def _reply(self, code: int, payload: dict | None = None) -> None:
+        body = json.dumps(payload).encode() if payload is not None else b""
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _record(self) -> tuple[str, bytes]:
+        auth = self.headers.get("Authorization", "")
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        self.server.calls.append((self.command, self.path, auth, body))
+        return auth, body
+
+    def do_POST(self) -> None:
+        auth, _ = self._record()
+        if self.path != "/app/installations/12345/access_tokens":
+            return self._reply(404, {"message": "Not Found"})
+        if not auth.startswith("Bearer ") or auth.count(".") != 2:
+            return self._reply(401, {"message": "A JSON web token could not be decoded"})
+        self.server.minted += 1
+        self._reply(
+            201, {"token": f"ghs_FAKE{self.server.minted}", "expires_at": "2030-01-01T00:00:00Z"}
+        )
+
+    def do_GET(self) -> None:
+        self._record()
+        if self.path == "/users/test-agent%5Bbot%5D":
+            return self._reply(200, {"id": 4242})
+        self._reply(404, {"message": "Not Found"})
+
+    def do_DELETE(self) -> None:
+        self._record()
+        self._reply(204 if self.path == "/installation/token" else 404)
+
+    def log_message(self, *args) -> None:
+        pass
 
 
 @pytest.fixture
-def env(tmp_path: Path) -> dict:
+def github():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FakeGitHub)
+    server.calls = []
+    server.minted = 0
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield server
+    server.shutdown()
+
+
+@pytest.fixture
+def env(tmp_path: Path, github) -> dict:
     config = tmp_path / "config"
     config.mkdir()
     key = config / "agent-app.pem"
@@ -57,20 +90,18 @@ def env(tmp_path: Path) -> dict:
     key.chmod(0o600)
     (config / "agent-app.conf").write_text(GOOD_CONFIG)
 
+    # A wrapper that records every curl command line, then runs the real curl.
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    curl = bin_dir / "curl"
-    curl.write_text(
-        FAKE_CURL.format(
-            python=sys.executable,
-            log=str(tmp_path / "curl.log"),
-            counter=str(tmp_path / "counter"),
-        )
+    wrapper = bin_dir / "curl"
+    wrapper.write_text(
+        f'#!/bin/bash\nprintf "%s\\n" "$*" >> {tmp_path / "curl-args.log"}\nexec {REAL_CURL} "$@"\n'
     )
-    curl.chmod(0o755)
+    wrapper.chmod(0o755)
     return {
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "GITHUB_API_URL": f"http://127.0.0.1:{github.server_port}",
         "CLAUDE_HARNESS_CONFIG_DIR": str(config),
         "CLAUDE_HARNESS_TOKEN_DIR": str(tmp_path / "token"),
         "XDG_CONFIG_HOME": str(tmp_path / "xdg-config"),
@@ -84,21 +115,24 @@ def run(env: dict, *args: str, script: Path = TOKEN_SCRIPT) -> subprocess.Comple
     )
 
 
-def curl_log(env: dict) -> str:
-    path = Path(env["TMP_ROOT"]) / "curl.log"
-    return path.read_text() if path.exists() else ""
-
-
 def mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
+
+
+def calls(github, method: str) -> list:
+    return [c for c in github.calls if c[0] == method]
 
 
 # --- refresh -------------------------------------------------------------------
 
 
-def test_refresh_writes_a_private_token_file(env):
+def test_refresh_sends_a_signed_jwt_and_stores_the_token(env, github):
     result = run(env, "refresh")
     assert result.returncode == 0, result.stderr
+    ((_, path, auth, _),) = calls(github, "POST")
+    assert path == "/app/installations/12345/access_tokens"
+    assert auth.startswith("Bearer ") and auth.count(".") == 2  # the JWT really arrived
+
     token_dir = Path(env["CLAUDE_HARNESS_TOKEN_DIR"])
     hosts = token_dir / "hosts.yml"
     assert "oauth_token: ghs_FAKE1" in hosts.read_text()
@@ -107,49 +141,53 @@ def test_refresh_writes_a_private_token_file(env):
     assert (token_dir / "expires_at").read_text().strip() == "2030-01-01T00:00:00Z"
 
 
-@pytest.mark.skipif(shutil.which("gh") is None, reason="gh not installed")
-def test_gh_and_git_read_the_token_file(env):
+def test_token_request_is_narrowed_to_one_repo(env, github):
     run(env, "refresh")
-    gh_env = {**env, "GH_CONFIG_DIR": env["CLAUDE_HARNESS_TOKEN_DIR"]}
-    answer = subprocess.run(
-        ["gh", "auth", "git-credential", "get"],
-        input="protocol=https\nhost=github.com\n\n",
-        capture_output=True,
-        text=True,
-        env=gh_env,
-        check=False,
-    )
-    assert "password=ghs_FAKE1" in answer.stdout
+    ((*_, body),) = calls(github, "POST")
+    request = json.loads(body)
+    assert request["repositories"] == ["repo"]
+    assert request["permissions"]["contents"] == "write"
+    for forbidden in ("administration", "secrets", "environments", "deployments", "workflows"):
+        assert forbidden not in request["permissions"]
 
 
-def test_second_refresh_replaces_and_revokes_the_old_token(env):
+def test_second_refresh_revokes_the_previous_token(env, github):
     run(env, "refresh")
     result = run(env, "refresh")
     assert result.returncode == 0, result.stderr
     hosts = Path(env["CLAUDE_HARNESS_TOKEN_DIR"]) / "hosts.yml"
     assert "ghs_FAKE2" in hosts.read_text()
-    assert curl_log(env).count("-X DELETE") == 1
+    ((_, path, auth, _),) = calls(github, "DELETE")
+    assert (path, auth) == ("/installation/token", "Bearer ghs_FAKE1")
 
 
 def test_credentials_never_appear_on_a_command_line(env):
     run(env, "refresh")
     run(env, "refresh")
-    log = curl_log(env)
-    assert "Bearer" not in log
-    assert "ghs_FAKE" not in log
+    args = (Path(env["TMP_ROOT"]) / "curl-args.log").read_text()
+    assert "Bearer" not in args
+    assert "ghs_FAKE" not in args
+    assert "eyJ" not in args  # no JWT either
 
 
-def test_token_request_is_narrowed_to_one_repo(env):
+@pytest.mark.skipif(shutil.which("gh") is None, reason="gh not installed")
+def test_gh_and_git_read_the_token_file(env):
     run(env, "refresh")
-    body = next(
-        line.split(" -d ", 1)[1].split(" https://")[0]
-        for line in curl_log(env).splitlines()
-        if "access_tokens" in line
+    answer = subprocess.run(
+        ["gh", "auth", "git-credential", "get"],
+        input="protocol=https\nhost=github.com\n\n",
+        capture_output=True,
+        text=True,
+        env={**env, "GH_CONFIG_DIR": env["CLAUDE_HARNESS_TOKEN_DIR"]},
+        check=False,
     )
-    request = json.loads(body)
-    assert request["repositories"] == ["repo"]
-    assert "administration" not in request["permissions"]
-    assert request["permissions"]["contents"] == "write"
+    assert "password=ghs_FAKE1" in answer.stdout
+
+
+def test_unreachable_github_gives_a_clear_error(env):
+    result = run({**env, "GITHUB_API_URL": "http://127.0.0.1:9"}, "refresh")
+    assert result.returncode != 0
+    assert "could not reach GitHub" in result.stderr
 
 
 # --- configure -------------------------------------------------------------------
@@ -235,6 +273,26 @@ def test_jwt_is_well_formed_and_signed_by_the_key(env, tmp_path):
         check=False,
     )
     assert b"Verified OK" in verify.stdout
+
+
+def test_windows_line_endings_and_quotes_are_tolerated(env, github):
+    messy = (
+        'CLIENT_ID="Iv23liTEST123"\r\nINSTALLATION_ID = 12345\r\n'
+        "REPO='owner/repo'\r\nAPP_SLUG=test-agent\r\n"
+    )
+    (Path(env["CLAUDE_HARNESS_CONFIG_DIR"]) / "agent-app.conf").write_text(messy)
+    result = run(env, "refresh")
+    assert result.returncode == 0, result.stderr
+
+
+def test_placeholder_values_are_named_in_the_error(env):
+    (Path(env["CLAUDE_HARNESS_CONFIG_DIR"]) / "agent-app.conf").write_text(
+        GOOD_CONFIG.replace("CLIENT_ID=Iv23liTEST123", "CLIENT_ID=<client id from step 1>")
+    )
+    result = run(env, "refresh")
+    assert result.returncode != 0
+    assert "'<client id from step 1>'" in result.stderr
+    assert "starts with Iv" in result.stderr
 
 
 def test_key_readable_by_others_is_refused(env):
