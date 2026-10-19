@@ -26,6 +26,9 @@
 - Never edit guardrail files (`.claude/`, `.github/workflows/`, `quality-gates.toml`,
   `.security/`). Write the change you want to `docs/proposals/<topic>.md`.
 - Never touch production. Deploys run in CI after the operator approves.
+- Stage files by name (`git add path/one path/two`), never `git add -A` or `git add .`:
+  the sandbox shows empty placeholder files over protected paths, and they must
+  never be committed. Run checks through `make`, not by calling tools directly.
 - New dependencies need the operator's approval. Check the package is real,
   maintained and spelled correctly before proposing it.
 
