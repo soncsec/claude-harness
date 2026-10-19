@@ -26,9 +26,17 @@ def test_main_ruleset_covers_the_default_branch():
     assert MAIN["conditions"]["ref_name"]["include"] == ["~DEFAULT_BRANCH"]
 
 
-@pytest.mark.parametrize("rule_type", ["deletion", "non_fast_forward", "update"])
+@pytest.mark.parametrize("rule_type", ["deletion", "non_fast_forward", "pull_request"])
 def test_main_ruleset_blocks_direct_changes(rule_type):
+    # pull_request means every change to main goes through a PR: no direct pushes.
     assert rule(MAIN, rule_type) is not None
+
+
+def test_approved_prs_can_merge_without_bypass():
+    # Operator's choice (2026-10-20): no "update" (restrict updates) rule, so an
+    # approved PR merges without the admin bypass. The bot may then merge a PR
+    # the owner approved, but never one they have not.
+    assert rule(MAIN, "update") is None
 
 
 def test_main_ruleset_requires_owner_review():

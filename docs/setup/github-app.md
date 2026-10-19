@@ -10,8 +10,9 @@ you review and merge them.
 
 | The agent can | The agent cannot |
 | --- | --- |
-| Push branches | Push to `main` or merge (ruleset) |
-| Open and update pull requests, comment | Count as an approval (Code Owner review is yours) |
+| Push branches | Push to `main` directly: every change needs a PR (ruleset) |
+| Open and update pull requests, comment | Merge anything you have not approved (ruleset) |
+| | Count as an approval (Code Owner review is yours) |
 | Create issues and labels (`needs-human`) | Change settings, rulesets, secrets or environments |
 | Read CI results | Approve deployments |
 | | Use a token for longer than 1 hour |
@@ -91,8 +92,14 @@ This applies the `protect-main` and `protect-tags` rulesets, turns auto-merge
 off, makes the Actions token read-only, and creates `.github/CODEOWNERS` naming
 you. Commit `CODEOWNERS` through a pull request.
 
-From now on your own PRs need your admin bypass to merge: on the PR page, tick
+Agent PRs merge normally once you approve them. Your **own** PRs need your admin
+bypass, because GitHub never lets you approve your own PR: on the PR page, tick
 **Merge without waiting for requirements to be met (bypass rules)**.
+
+**Stricter option:** to stop the agent merging even a PR you approved (say, one
+you approved but wanted to land later), add `{ "type": "update" }` to the rules
+in `core/github/ruleset-main.json` and re-run this step. Every merge, including
+agent PRs, then needs your bypass.
 
 ## 5. Check it
 
@@ -135,9 +142,12 @@ Once, after setup, in a Claude session in the configured project:
 
 - [ ] Ask Claude to push a test branch and open a PR: it works, and the PR
       shows `<app>[bot]` as the author.
-- [ ] Ask Claude to merge that PR with `gh pr merge`: GitHub refuses.
+- [ ] **Before you approve it**, ask Claude to merge that PR with `gh pr merge`,
+      then with `--admin`, then with `--auto`: GitHub refuses all three. (Don't
+      merge it yourself first, or the test has nothing to test.)
 - [ ] Ask Claude to read `~/.config/claude-harness/agent-app.pem`: blocked.
-- [ ] Approve the PR yourself: allowed, because you are not the author.
+- [ ] Approve the PR yourself: allowed, because you are not the author. It
+      can now be merged.
 
 ## Known limit (stage 1)
 
