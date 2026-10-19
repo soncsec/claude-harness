@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.envrc)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.netrc)",
+      "Read(~/.pypirc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.claude/.credentials.json)",
+      "Edit(/.claude/**)",
+      "Edit(/.github/workflows/**)",
+      "Edit(/.github/CODEOWNERS)",
+      "Edit(/.pre-commit-config.yaml)",
+      "Edit(/.security/**)",
+      "Edit(/quality-gates.toml)",
+      "Bash(sudo *)",
+      "Bash(git push --force)",
+      "Bash(git push --force *)",
+      "Bash(git push * --force)",
+      "Bash(git push -f *)",
+      "Bash(git push * -f)",
+      "Bash(git commit * --no-verify)",
+      "Bash(git commit --no-verify *)",
+      "Bash(gh secret *)",
+      "Bash(gh auth token)",
+      "Bash(gh pr review * --approve)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr create *)",
+      "Bash(gh api *)",
+      "Bash(gh workflow run *)",
+      "Bash(gh release *)",
+      "Bash(uv add *)",
+      "Bash(uv remove *)",
+      "Bash(pip install *)",
+      "Bash(uv pip install *)",
+      "Bash(docker *)",
+      "WebFetch"
+    ],
+    "allow": [
+      "Bash(make help)",
+      "Bash(make setup)",
+      "Bash(make lint)",
+      "Bash(make format)",
+      "Bash(make test)",
+      "Bash(make scan)",
+      "Bash(make build)",
+      "Bash(make doctor)",
+      "Bash(uv run pytest *)",
+      "Bash(uv sync)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.config/gh",
+        "~/.docker/config.json",
+        "~/.netrc",
+        "~/.pypirc",
+        "~/.git-credentials",
+        "~/.claude/.credentials.json",
+        "~/**/.env",
+        "~/**/.env.*"
+      ],
+      "denyWrite": [
+        ".claude",
+        ".github/workflows",
+        ".github/CODEOWNERS",
+        ".pre-commit-config.yaml",
+        ".security",
+        "quality-gates.toml"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "pypi.org",
+        "files.pythonhosted.org",
+        "github.com",
+        "api.github.com",
+        "*.githubusercontent.com"
+      ]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session_start.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard_bash.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect_files.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require_ask_tool.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

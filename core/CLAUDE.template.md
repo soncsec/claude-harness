@@ -1,0 +1,48 @@
+# {{PROJECT_NAME}}
+
+{{DESCRIPTION}}
+
+<!-- Installed by claude-harness. This file is loaded into every Claude Code
+     session, so keep it short and link out to longer docs. -->
+
+## Workflow
+
+1. Work only on GitHub issues labeled `ready`: one issue, one branch, one small PR.
+2. Propose a plan first; the operator approves it before you write code.
+3. Turn the issue's acceptance criteria into failing tests, then make them pass.
+4. Run `make lint test scan` and fix what they report before saying you are done.
+5. Open a pull request. Never push to `main`, never merge, never approve.
+
+## Commands
+
+`make setup` · `make lint` · `make test` · `make scan` · `make build` · `make help`
+
+## Hard rules
+
+- Never weaken a test, a coverage threshold or a quality gate to get a pass.
+- Never suppress a finding (`# nosec`, `# noqa`, `# nosemgrep`, `skip`, `xfail`);
+  propose an exception to the operator instead.
+- Never read secret files (`.env`, keys, credentials). Document settings in `env.example`.
+- Never edit guardrail files (`.claude/`, `.github/workflows/`, `quality-gates.toml`,
+  `.security/`). Write the change you want to `docs/proposals/<topic>.md`.
+- Never touch production. Deploys run in CI after the operator approves.
+- New dependencies need the operator's approval. Check the package is real,
+  maintained and spelled correctly before proposing it.
+
+## Asking the operator
+
+- Ask every question with the AskUserQuestion tool: 2-4 options, recommended first.
+  Plain-text questions are easy to miss.
+- Subagents cannot ask the operator: return the question to the main agent.
+- Anything the operator must do later becomes a GitHub issue labeled `needs-human`
+  with exact steps.
+
+## When something fails
+
+Fix the code first. Rerun a flaky test once. After 3 failed attempts at the same
+problem, stop and ask the operator with options.
+
+## More
+
+- Architecture: `docs/ARCHITECTURE.md`
+- Decisions and their reasons: `docs/adr/`

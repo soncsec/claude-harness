@@ -1,0 +1,31 @@
+[project]
+name = "claude-harness"
+version = "0.1.0"
+description = "A secure, repeatable harness for building software with Claude Code."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "shellcheck-py>=0.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# E/F: errors, I: import order, B: likely bugs, S: security (bandit rules), UP: modern syntax
+select = ["E", "F", "I", "B", "S", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert and run the hook scripts as subprocesses on purpose.
+"tests/**" = ["S101", "S603", "S607"]
