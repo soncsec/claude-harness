@@ -90,7 +90,7 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
         re.compile(
             r"(?:^|[\s/=<>:(])\.env(?:\.[\w.-]+|rc)?(?=$|[\s;&|)])"
             r"|\.ssh(?:/|\b)|\bid_(?:rsa|ed25519|ecdsa|dsa)\b"
-            r"|\.aws/|\.gnupg\b|\.kube/|\.config/gh\b"
+            r"|\.aws/|\.gnupg\b|\.kube/|\.config/gh\b|\.config/claude-harness\b"
             r"|\.credentials\.json\b|\.netrc\b|\.pypirc\b|\.git-credentials\b"
             r"|\.docker/config\.json\b"
             r"|[\w/.-]+\.(?:pem|key|p12|pfx)(?=$|[\s;&|)])"
@@ -100,7 +100,15 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "approving deployments or pull requests",
-        re.compile(r"pending_deployments|\bgh\s+pr\s+review\b[^;&|]*\s(?:--approve|-a)(?=$|\s)"),
+        re.compile(
+            # Approving = sending data to the pending_deployments endpoint. Reading it,
+            # or searching docs that mention it, is fine.
+            r"\b(?:gh\s+api|curl|wget)\b"
+            r"(?=[^;&|\n]*pending_deployments)"
+            r"(?=[^;&|\n]*(?:-X\s*POST|--method[= ]?POST|--request[= ]?POST"
+            r"|\s-[fFd](?=\s)|--field|--raw-field|--input|--data))"
+            r"|\bgh\s+pr\s+review\b[^;&|]*\s(?:--approve|-a)(?=$|\s)"
+        ),
         "Approvals belong to the operator. Ask them to approve in GitHub.",
     ),
     (
