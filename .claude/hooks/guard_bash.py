@@ -116,9 +116,25 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
         "Containers must not get host-level access. Use the project's compose file.",
     ),
     (
+        # Only running the installer counts, not mentioning it (e.g. in a commit message).
         "reinstalling the harness",
-        re.compile(r"\binstall-harness\b"),
+        re.compile(
+            r"(?:^|[\n;&|(`]|\$\(|\b(?:bash|sh|exec|env|nohup|time)\s+)\s*"
+            r"(?:[\w./~$-]*/)?install-harness(?:\.sh)?(?=$|[\s;&|)])"
+            r"|\bmake\b[^;&|\n]*\binstall-harness\b"
+        ),
         "Installing or updating guardrails is an operator step. Ask the operator to run it.",
+    ),
+    (
+        # The sandbox shows empty placeholder files (e.g. .bashrc, quality-gates.toml)
+        # over protected paths; bulk staging would commit them.
+        "staging everything at once",
+        re.compile(
+            r"\bgit\b[^;&|\n]*\badd\b[^;&|\n]*"
+            r"\s(?:--all|-[a-zA-Z]*A[a-zA-Z]*|\.|\./|:/|\*)(?=$|[\s;&|)])"
+        ),
+        "Stage files by name (git add path/one path/two). Inside the sandbox, empty "
+        "placeholder files appear over protected paths and must never be committed.",
     ),
 ]
 
