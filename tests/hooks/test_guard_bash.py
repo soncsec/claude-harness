@@ -86,6 +86,14 @@ BLOCKED = [
     "git commit -m 'Update docs' && touch .claude/x",
     "git commit -F - <<'EOF'\nmessage\nEOF\ntouch .claude/x",
     "git commit -m 'safe' ; sudo whoami",
+    # approving a deployment, in its different spellings
+    "gh api -X POST repos/o/r/actions/runs/1/pending_deployments -f state=approved",
+    "gh api repos/o/r/actions/runs/1/pending_deployments -F environment_ids[]=1",
+    "curl -X POST https://api.github.com/repos/o/r/actions/runs/1/pending_deployments",
+    "curl -d @approve.json https://api.github.com/repos/o/r/actions/runs/1/pending_deployments",
+    # the GitHub App key folder
+    "cat ~/.config/claude-harness/agent-app.pem",
+    "ls ~/.config/claude-harness",
     # bulk staging would commit the sandbox's empty placeholder files
     "git add -A",
     "git add --all",
@@ -131,6 +139,9 @@ ALLOWED = [
     "git commit -q -F - <<'EOF'\nAgents cannot touch .claude/ inside the sandbox.\n"
     "Also mentions sudo, .env and git push --force.\nEOF",
     "git commit -F - <<EOF\nPlain heredoc that mentions .claude/ and rm\nEOF",
+    # reading about or listing pending deployments is not approving them
+    "grep -rn pending_deployments docs/",
+    "gh api repos/o/r/actions/runs/1/pending_deployments",
     # copying OUT of a guardrail path (a backup) is fine
     "cp .claude/settings.json /tmp/settings-backup.json",
     'cp -r .claude "$TMPDIR/claude-backup"',

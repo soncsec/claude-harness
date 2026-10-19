@@ -66,6 +66,12 @@ Start a new Claude Code session in the project and walk through
 [red-team-checklist.md](red-team-checklist.md). Every "must be blocked" item
 should be blocked. If one is not, stop and fix it before real work starts.
 
+## 6. Optional: give Claude its own GitHub identity
+
+Agents cannot use your GitHub login. To let them push branches and open pull
+requests under their own name while merging stays with you, follow
+[setup/github-app.md](setup/github-app.md).
+
 ## What you will notice inside the sandbox
 
 - **Empty placeholder files.** In a sandboxed session, `git status` shows empty files
