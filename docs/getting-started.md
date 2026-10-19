@@ -83,12 +83,14 @@ requests under their own name while merging stays with you, follow
   placeholder and is harmless.
 - **No shared caches.** Tools cannot write to caches in your home folder. The
   Makefile gives uv a per-project cache in `.cache/uv`; run checks with `make`.
-- **Guardrail changes from git are an operator step.** The sandbox makes `.claude/`
-  and `.git/config` read-only, so an agent cannot switch to a branch or pull a
-  commit that changes `.claude/`; git stops halfway with "Read-only file system".
-  That is deliberate: otherwise checking out a branch with weaker settings would
-  get around them. Do those switches and pulls yourself, outside the sandbox.
-- **No GitHub credentials.** Your `gh` login is unreadable inside the sandbox, so
+- **Guardrail changes from git are an operator step.** The sandbox makes protected
+  files read-only (`.claude/`, `.github/workflows/`, `.github/CODEOWNERS`,
+  `quality-gates.toml`, `.security/`, `.git/config`), so an agent cannot switch to
+  a branch or pull a commit that changes them; git stops halfway with "Read-only
+  file system" or "Device or resource busy". That is deliberate: otherwise
+  checking out a branch with weaker settings would get around them. Do those
+  switches and pulls yourself, outside the sandbox.
+- **No GitHub credentials by default.** Your `gh` login is unreadable inside the sandbox, so
   agents cannot push or open pull requests with your account. Give agents their
   own GitHub identity, or push yourself.
 

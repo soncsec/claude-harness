@@ -97,27 +97,41 @@ From now on your own PRs need your admin bypass to merge: on the PR page, tick
 ## 5. Check it
 
 ```sh
-scripts/agent-session.sh --check
+scripts/agent-token.sh check
 ```
 
-This mints a token, shows which identity it belongs to, and revokes it again.
+This mints a token, confirms which identity it belongs to, and revokes it again.
+
+## 6. Keep the token fresh, and wire the project
+
+```sh
+scripts/agent-token.sh install-timer             # renews every 20 minutes, in the background
+scripts/agent-token.sh configure ~/dev/<project> # Claude sessions there act as the app
+scripts/agent-token.sh status                    # when does the current token expire?
+```
+
+`install-timer` sets up a systemd user timer. Every 20 minutes, and right after
+login or waking from sleep, it mints a fresh 1-hour token into
+`~/.cache/claude-harness/gh/` and revokes the previous one. `gh`, and `git`
+through `gh`, read that file on every command, so running sessions pick up each
+renewal without restarting.
+
+`configure` writes the project's `.claude/settings.local.json`: personal,
+git-ignored, and unwritable by agents. It points `gh` and `git` at the token
+file and labels commits as `<app>[bot]`. Run it once per project. Your own `gh`
+in your own terminal is unaffected.
 
 ## Daily use
 
-Start agent sessions with the script instead of `claude`:
+Just run `claude` in the project. Nothing to restart, nothing to remember.
 
-```sh
-scripts/agent-session.sh              # new session
-scripts/agent-session.sh -- --resume  # arguments after -- go to claude
-```
-
-The token lasts 1 hour. When it runs out, pushes start failing: exit and run
-the script again (`-- --resume` picks up the conversation). The token is
-revoked when Claude exits.
+- Moved the harness repo? Run `install-timer` again: the timer stores its path.
+- No systemd on this machine? Start sessions with `scripts/agent-session.sh`
+  instead: it renews the token in the background for as long as Claude runs.
 
 ## Prove the boundary
 
-Once, after setup, in a session started with `agent-session.sh`:
+Once, after setup, in a Claude session in the configured project:
 
 - [ ] Ask Claude to push a test branch and open a PR: it works, and the PR
       shows `<app>[bot]` as the author.
@@ -127,8 +141,8 @@ Once, after setup, in a session started with `agent-session.sh`:
 
 ## Known limit (stage 1)
 
-The agent can see its own token in its environment. That token is limited to
-one repo, the permissions above and 1 hour, and the rules stop it merging or
-approving. Stage 2 will hide the token from the agent entirely (sandbox
+The agent can read its current token from the token file. That token is
+limited to one repo, the permissions above and at most 1 hour, it is revoked
+when the next one is minted, and the rules stop it merging or approving. Stage 2 will hide the token from the agent entirely (sandbox
 credential masking, or a GitHub MCP server that mints tokens itself) once that
 is tested.
