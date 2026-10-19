@@ -26,6 +26,9 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
 - **Questions you will not miss:** agents must ask with the question prompt, not
   in plain text.
 - **Reminders:** each session starts with what is waiting on you in GitHub.
+- **Its own GitHub identity:** agents push branches and open pull requests as a
+  GitHub App bot, with short-lived tokens that renew in the background; only you
+  can merge or approve. See [docs/setup/github-app.md](docs/setup/github-app.md).
 
 ## Security
 
