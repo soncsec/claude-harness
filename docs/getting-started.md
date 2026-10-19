@@ -73,6 +73,8 @@ should be blocked. If one is not, stop and fix it before real work starts.
   mounts them read-only over protected paths that do not exist yet, so nothing can
   create them. They exist only inside the sandbox, not on your disk. Never commit
   them: stage files by name. The Bash guard blocks `git add -A` and `git add .`.
+  Git may also warn that it cannot read `.gitmodules`; that is the same
+  placeholder and is harmless.
 - **No shared caches.** Tools cannot write to caches in your home folder. The
   Makefile gives uv a per-project cache in `.cache/uv`; run checks with `make`.
 - **No GitHub credentials.** Your `gh` login is unreadable inside the sandbox, so
