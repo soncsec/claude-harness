@@ -1,0 +1,3 @@
+# Local databases created by `make run`
+*.db
+*.db-journal

@@ -7,7 +7,7 @@ TARGET ?= .
 # cache would let one project's agent plant packages another project installs.
 export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 
-.PHONY: help setup lint format test check doctor install-harness
+.PHONY: help setup lint format test check example-check doctor install-harness
 
 help: ## Show the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -28,7 +28,10 @@ format: ## Fix formatting and import order
 test: ## Run the test suite
 	$(UV) run pytest
 
-check: lint test ## Run everything CI runs
+example-check: ## Run the example app's checks
+	$(MAKE) -C example-app check
+
+check: lint test example-check ## Run everything CI runs
 
 doctor: ## Check this machine has the required tools (Debian 13)
 	scripts/setup-debian.sh --check
