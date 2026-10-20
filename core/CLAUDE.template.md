@@ -8,6 +8,10 @@
 ## Workflow
 
 1. Work only on GitHub issues labeled `ready`: one issue, one branch, one small PR.
+   Never add the `ready` label yourself, except as `/kickoff` describes: to the
+   issues you just created from a list the operator approved. If the project has
+   no plan yet (no `docs/ARCHITECTURE.md`, no `ready` issues), suggest the
+   operator run `/kickoff` (or `/kickoff --adopt` for existing code).
 2. Propose a plan first; the operator approves it before you write code.
 3. Turn the issue's acceptance criteria into failing tests, then make them pass.
 4. Run `make lint test scan` and fix what they report before saying you are done.
@@ -37,7 +41,8 @@
 - Do not switch branches or pull when the change touches protected files
   (`.claude/`, `.github/`, `quality-gates.toml`, `.security/`): the sandbox blocks
   it partway. Ask the operator to do it.
-- New dependencies need the operator's approval. Check the package is real,
+- New dependencies need the operator's approval: add them with `uv add`, which
+  asks, never by editing `pyproject.toml`. Check the package is real,
   maintained and spelled correctly before proposing it.
 
 ## Asking the operator

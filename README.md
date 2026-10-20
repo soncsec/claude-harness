@@ -21,6 +21,9 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
 
 ## What you get
 
+- **A guided start:** `/kickoff` takes a project from an idea to a design, a
+  threat model, a planned first milestone and a walking skeleton, with you
+  approving each phase. See [docs/getting-started.md](docs/getting-started.md).
 - **Guardrails:** permissions, an OS-level sandbox and hooks that block dangerous
   commands, keep agents away from secrets and stop them editing their own rules.
 - **Questions you will not miss:** agents must ask with the question prompt, not
