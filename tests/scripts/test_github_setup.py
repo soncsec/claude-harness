@@ -39,12 +39,43 @@ def test_approved_prs_can_merge_without_bypass():
     assert rule(MAIN, "update") is None
 
 
-def test_main_ruleset_requires_owner_review():
+def test_main_ruleset_needs_owner_review_only_for_guardrail_files():
+    # Operator's choice (2026-10-20): ordinary PRs merge without an approval (the
+    # operator clicks Merge); Code Owner review still guards the guardrail files.
     params = rule(MAIN, "pull_request")["parameters"]
-    assert params["required_approving_review_count"] >= 1
+    assert params["required_approving_review_count"] == 0
     assert params["require_code_owner_review"] is True
-    assert params["require_last_push_approval"] is True
     assert params["dismiss_stale_reviews_on_push"] is True
+
+
+CODEOWNERS = (REPO / "core" / "github" / "CODEOWNERS.template").read_text()
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/.claude/", "/.github/", "/.security/", "/quality-gates.toml", "/.pre-commit-config.yaml"],
+)
+def test_codeowners_template_covers_guardrail_files(path):
+    assert any(
+        line.split()[0] == path
+        for line in CODEOWNERS.splitlines()
+        if line.strip() and not line.startswith("#")
+    )
+
+
+def test_codeowners_template_has_no_catch_all():
+    # A "*" line would require review of every PR again.
+    entries = [
+        line.split()[0]
+        for line in CODEOWNERS.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert "*" not in entries
+    assert all(
+        line.endswith("@{{OWNER}}")
+        for line in CODEOWNERS.splitlines()
+        if line.strip() and not line.startswith("#")
+    )
 
 
 def test_only_admins_bypass_and_only_through_pull_requests():

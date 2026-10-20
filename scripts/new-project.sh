@@ -17,7 +17,7 @@ Usage: scripts/new-project.sh [options] [DIR]
 
 Sets up the project in DIR (default: the current directory):
   1. guardrails: settings, sandbox, hooks, CLAUDE.md (install-harness.sh)
-  2. CODEOWNERS naming you
+  2. CODEOWNERS: changes to guardrail files need your review
   3. first commit: pushed straight to main for a new, empty repo;
      a pull request for a repo that already has history
   4. GitHub rules (github-setup.sh)
@@ -162,14 +162,14 @@ main() {
     "$HARNESS_DIR/scripts/install-harness.sh" "${YES[@]}" "$DIR"
   fi
 
-  step "CODEOWNERS: every change needs @$owner's review"
+  step "CODEOWNERS: changes to guardrail files need @$owner's review"
   if [[ -f $DIR/.github/CODEOWNERS ]]; then
     log "Already present; left unchanged."
   elif (( DRY_RUN )); then
-    printf '  + write %s/.github/CODEOWNERS: * @%s\n' "$DIR" "$owner"
+    printf '  + write %s/.github/CODEOWNERS from core/github/CODEOWNERS.template\n' "$DIR"
   else
     mkdir -p "$DIR/.github"
-    printf '# Every change needs a review from the repository owner.\n* @%s\n' "$owner" \
+    sed "s/{{OWNER}}/$owner/g" "$HARNESS_DIR/core/github/CODEOWNERS.template" \
       > "$DIR/.github/CODEOWNERS"
   fi
 

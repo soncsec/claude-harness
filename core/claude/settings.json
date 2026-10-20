@@ -37,7 +37,9 @@
       "Bash(git commit --no-verify *)",
       "Bash(gh secret *)",
       "Bash(gh auth token)",
-      "Bash(gh pr review * --approve)"
+      "Bash(gh pr review * --approve)",
+      "Bash(gh pr merge)",
+      "Bash(gh pr merge *)"
     ],
     "ask": [
       "Bash(git push *)",

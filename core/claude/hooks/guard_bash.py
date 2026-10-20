@@ -113,6 +113,17 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
         "Approvals belong to the operator. Ask them to approve in GitHub.",
     ),
     (
+        # GitHub no longer requires an approval for ordinary PRs, so it cannot tell the
+        # operator's merge from the agent's: this rule keeps merging with the operator.
+        "merging a pull request",
+        re.compile(
+            r"\bgh\s+pr\s+merge\b"
+            r"|\b(?:gh\s+api|curl)\b(?=[^;&|\n]*pulls/\d+/merge)"
+            r"(?=[^;&|\n]*(?:-X\s*PUT|--method[= ]?PUT|--request[= ]?PUT|merge_method))"
+        ),
+        "The operator merges pull requests. Leave the PR ready (checks passing) and tell them.",
+    ),
+    (
         "changing GitHub credentials or secrets",
         re.compile(r"\bgh\s+(?:secret|auth\s+(?:login|logout|refresh|switch|setup-git))\b"),
         "Credentials and repository secrets are managed by the operator.",

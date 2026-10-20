@@ -16,15 +16,17 @@ Usage: scripts/github-setup.sh [--dry-run] OWNER/REPO
   -h, --help  Show this help.
 
 What it applies:
-  ruleset protect-main   Only you update the default branch, and only by merging
-                         a pull request after Code Owner review. No force pushes,
-                         no deletion. (core/github/ruleset-main.json)
+  ruleset protect-main   Changes reach the default branch only through pull
+                         requests; those touching guardrail files need your
+                         Code Owner review. No force pushes, no deletion.
+                         (core/github/ruleset-main.json)
   ruleset protect-tags   Only you create, move or delete tags.
                          (core/github/ruleset-tags.json)
   repo settings          Auto-merge off; merged branches deleted; the Actions
                          token is read-only and cannot approve pull requests.
-  .github/CODEOWNERS     Created in the current git repo if missing ("* @OWNER").
-                         Commit it yourself; agents cannot edit it.
+  .github/CODEOWNERS     Created in the current git repo if missing, from
+                         core/github/CODEOWNERS.template: you own the guardrail
+                         files. Commit it yourself; agents cannot edit it.
 EOF
 }
 
@@ -90,10 +92,10 @@ write_codeowners() {
     log "CODEOWNERS already exists ($file); left unchanged."
     return
   fi
-  log "Creating $file: every file needs @$owner's review"
+  log "Creating $file: changes to guardrail files need @$owner's review"
   if (( ! DRY_RUN )); then
     mkdir -p "$top/.github"
-    printf '# Every change needs a review from the repository owner.\n* @%s\n' "$owner" > "$file"
+    sed "s/{{OWNER}}/$owner/g" "$HARNESS_DIR/core/github/CODEOWNERS.template" > "$file"
   fi
 }
 

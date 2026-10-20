@@ -61,6 +61,21 @@ Remove its entry from the `hooks` section of `.claude/settings.json`. Keep the
 script so you can turn it back on. The question hook (`require_ask_tool.py`) is
 the one most worth keeping: without it, plain-text questions get missed.
 
+### Choosing which PRs need your review
+
+By default, ordinary pull requests need no approval: you look at them and click
+**Merge**. Only PRs that touch the paths in `.github/CODEOWNERS` need your
+approval first. The template lists the guardrail files; add any path whose
+changes you always want to see, for example:
+
+```
+/deploy/          @you
+/src/auth/        @you
+```
+
+To review every PR instead, add `* @you`. Agents cannot edit `CODEOWNERS`
+themselves; commit the change through a pull request of your own.
+
 ## Path syntax cheat sheet
 
 Permission rules and sandbox paths use **different** conventions:
