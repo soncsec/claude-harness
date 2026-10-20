@@ -51,8 +51,8 @@ only: they need network access the local sandbox does not allow.
 2. Resolve its tag to a commit: `gh api repos/<owner>/<action>/commits/<tag> --jq .sha`.
 3. Update the commit and the version comment in `core/github/workflows/`, and
    the matching version in the Makefiles for pip-audit and zizmor.
-4. Run `make check`, open a pull request, then re-install the workflows with
-   `scripts/install-harness.sh .` once it is merged.
+4. Run `make check` and open a pull request. Once it is merged, the operator
+   runs `scripts/update-guardrails.sh` to put the new workflows in place.
 
 ## Private repos on GitHub Free
 

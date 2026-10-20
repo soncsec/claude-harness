@@ -208,11 +208,13 @@ install_gitignore() {
 }
 
 record_version() {
-  local version
+  local version file="$TARGET/.claude/harness-version"
   [[ $MODE == dry-run ]] && return 0
   version=$(git -C "$HARNESS_DIR" describe --always --dirty 2>/dev/null || echo unknown)
-  printf 'claude-harness %s\ninstalled %s\n' "$version" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    > "$TARGET/.claude/harness-version"
+  # Same version already recorded: leave the file alone, so re-running the
+  # installer does not show a change (the install time would differ).
+  [[ -f $file && $(head -n1 "$file") == "claude-harness $version" ]] && return 0
+  printf 'claude-harness %s\ninstalled %s\n' "$version" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$file"
 }
 
 # Feed one dangerous command to the installed Bash hook; it must say "deny".
