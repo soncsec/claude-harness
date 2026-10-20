@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -48,9 +49,13 @@ def test_fresh_install(project):
 def test_rerun_changes_nothing(project):
     install(project, "--yes")
     gitignore_before = (project / ".gitignore").read_text()
+    version_file = project / ".claude" / "harness-version"
+    version_before = version_file.read_text()
+    time.sleep(1.1)  # the install time would differ if the file were rewritten
     result = install(project, "--yes")
     assert result.returncode == 0, result.stderr
     assert (project / ".gitignore").read_text() == gitignore_before
+    assert version_file.read_text() == version_before
 
 
 def test_dry_run_changes_nothing(project):

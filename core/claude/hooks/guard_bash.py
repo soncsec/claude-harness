@@ -148,8 +148,9 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
             # A wrapper (bash, sh, ...) counts only where a command starts, so the
             # ".sh " ending one file name is not read as "sh" running the next file.
             r"(?:^|[\n;&|(`]|\$\()\s*(?:(?:bash|sh|exec|env|nohup|time)\s+)?"
-            r"(?:[\w./~$-]*/)?(?:install-harness|new-project)(?:\.sh)?(?=$|[\s;&|)])"
-            r"|\bmake\b[^;&|\n]*\b(?:install-harness|new-project)\b"
+            r"(?:[\w./~$-]*/)?(?:install-harness|new-project|update-guardrails)(?:\.sh)?"
+            r"(?=$|[\s;&|)])"
+            r"|\bmake\b[^;&|\n]*\b(?:install-harness|new-project|update-guardrails)\b"
         ),
         "Installing or updating guardrails is an operator step. Ask the operator to run it.",
     ),

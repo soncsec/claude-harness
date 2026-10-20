@@ -10,11 +10,19 @@ export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 # ~/.local/share is read-only inside the sandbox.
 export UV_TOOL_DIR ?= $(CURDIR)/.cache/uv-tools
 export UV_TOOL_BIN_DIR ?= $(CURDIR)/.cache/uv-tools/bin
+# Python TLS clients default to certifi's cacert.pem, which the sandbox hides along
+# with every *.pem file (private keys often use that extension). Point them at the
+# system's CA bundle instead; it is public and not hidden.
+SYSTEM_CA := $(firstword $(wildcard /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt))
+ifneq ($(SYSTEM_CA),)
+export REQUESTS_CA_BUNDLE ?= $(SYSTEM_CA)
+export SSL_CERT_FILE ?= $(SYSTEM_CA)
+endif
 # Same versions as core/github/workflows/security.yml (a test keeps them equal).
 PIP_AUDIT ?= pip-audit==2.10.1
 ZIZMOR ?= zizmor==1.30.1
 
-.PHONY: help setup lint format test scan check example-check doctor install-harness
+.PHONY: help setup lint format test scan check example-check doctor install-harness update-guardrails
 
 help: ## Show the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -53,3 +61,6 @@ doctor: ## Check this machine has the required tools (Debian 13)
 
 install-harness: ## Operator only: install the template into TARGET (default: this repo)
 	scripts/install-harness.sh $(TARGET)
+
+update-guardrails: ## Operator only: update TARGET's guardrails via a PR, CI and merge
+	scripts/update-guardrails.sh $(TARGET)

@@ -9,6 +9,13 @@ export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 export UV_TOOL_DIR ?= $(CURDIR)/.cache/uv-tools
 export UV_TOOL_BIN_DIR ?= $(CURDIR)/.cache/uv-tools/bin
 PIP_AUDIT ?= pip-audit==2.10.1
+# Python TLS clients default to certifi's cacert.pem, which the sandbox hides along
+# with every *.pem file. Point them at the system's (public) CA bundle instead.
+SYSTEM_CA := $(firstword $(wildcard /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt))
+ifneq ($(SYSTEM_CA),)
+export REQUESTS_CA_BUNDLE ?= $(SYSTEM_CA)
+export SSL_CERT_FILE ?= $(SYSTEM_CA)
+endif
 
 .PHONY: help setup lint format test scan check run
 

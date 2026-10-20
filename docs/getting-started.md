@@ -119,14 +119,22 @@ replacing any other file that differs from the template.
 
 ## Updating
 
-Pull the latest harness, then re-run the installer. Files you have not changed
-are updated; files you changed are shown as a diff and kept unless you agree to
-replace them (or pass `--force`).
+When the harness gets new guardrails (settings, hooks, CI workflows), one
+command brings a project up to date:
 
 ```sh
 git -C ~/dev/claude-harness pull
-~/dev/claude-harness/scripts/install-harness.sh .
+~/dev/claude-harness/scripts/update-guardrails.sh ~/dev/<project>
 ```
+
+It shows what would change and asks once. Then it installs the changes on a
+branch, opens a pull request, waits for CI to pass, merges it with your admin
+rights, and re-applies the GitHub rules. A failing check stops it before the
+merge. `--no-merge` stops after opening the pull request; `--dry-run` only
+shows what would change.
+
+Only you can do this: agents cannot install or change their own guardrails.
+Ordinary work (code, docs, tests) never needs it.
 
 ## Letting Claude do the first install
 
