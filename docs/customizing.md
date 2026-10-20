@@ -89,6 +89,13 @@ simpler to keep the set and add your own beside it.
 resets their color and description on each run. Labels you add on GitHub
 yourself are left alone.
 
+### Changing how /kickoff works
+
+Harness updates replace `.claude/skills/kickoff/`, so don't edit it in place.
+Copy it to a new folder, such as `.claude/skills/our-kickoff/`, change `name:`
+in its `SKILL.md` to match, and run `/our-kickoff`. Agents cannot edit skills,
+so the steps they follow stay the ones you approved.
+
 ## Path syntax cheat sheet
 
 Permission rules and sandbox paths use **different** conventions:

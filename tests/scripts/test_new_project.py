@@ -26,6 +26,7 @@ FAKE_GH = """#!/bin/bash
 printf '%s\\n' "$*" >> {log}
 case "$*" in
   *permissions.admin*) echo true ;;
+  *"--jq .visibility"*) echo "${{FAKE_GH_VISIBILITY:-private}}" ;;
   *defaultBranchRef*)  echo main ;;
   "api user --jq"*)    echo "owner ${{FAKE_GH_PLAN-pro}}" ;;
   "api repos/owner/repo/rulesets")
@@ -187,6 +188,29 @@ def test_github_setup_alone_exits_3_on_free_private(setup):
     assert "local guardrails only" in result.stdout
     # Labels work on every plan, so they are still created.
     assert "label create ready --repo owner/repo" in setup["log"].read_text()
+
+
+def github_setup(setup: dict) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [str(REPO / "scripts" / "github-setup.sh"), "owner/repo"],
+        cwd=setup["project"],
+        capture_output=True,
+        text=True,
+        env=setup["env"],
+        check=False,
+    )
+
+
+def test_public_repo_gets_private_vulnerability_reporting(setup):
+    setup["env"]["FAKE_GH_VISIBILITY"] = "public"
+    assert github_setup(setup).returncode == 0
+    assert "-X PUT repos/owner/repo/private-vulnerability-reporting" in setup["log"].read_text()
+
+
+def test_private_repo_skips_vulnerability_reporting(setup):
+    # GitHub offers it on public repos only.
+    assert github_setup(setup).returncode == 0
+    assert "private-vulnerability-reporting" not in setup["log"].read_text()
 
 
 def test_github_setup_dry_run_lists_the_labels_and_creates_none(setup):

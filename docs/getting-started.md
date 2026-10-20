@@ -57,8 +57,30 @@ enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers.
 | Issues | Feature, Bug, Chore and Needs-human forms, with blank issues turned off, and the labels agents use: `ready`, `needs-human`, `security`. |
 | Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
 
-It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`,
-and read `CLAUDE.md` to fill in anything marked `TODO`.
+It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`
+and type `/kickoff`.
+
+### Kickoff: plan the project with Claude
+
+`/kickoff` walks a new project from an idea to its first working code. Claude
+asks you questions through the question prompt, and you approve each phase
+before the next one starts:
+
+| Phase | You decide | Claude writes |
+| --- | --- | --- |
+| 0. Check | Only if something is missing | Nothing; it checks the setup |
+| 1. Define | Goal, users, non-goals, constraints, how sensitive the data is | `README.md`, the top of `CLAUDE.md` |
+| 2. Design | App shape, storage, sign-in, services | `docs/ARCHITECTURE.md`, ADRs in `docs/adr/`, `docs/threat-model.md`, `SECURITY.md` |
+| 3. Plan | Which issues make up the first milestone | `ROADMAP.md`, a milestone and its issues (labeled `ready` once you approve), one pull request |
+| 4. Skeleton | The plan for the skeleton, and its dependencies | A minimal app with tests and `make check`, green in CI |
+
+After the skeleton is merged, run `scripts/update-guardrails.sh` once in the
+project: it adds the new code to the coverage gate. Kickoff opens a
+`needs-human` issue to remind you.
+
+For a project that already has code, use `/kickoff --adopt`: Claude reads the
+code first, asks only what it cannot tell, and adds missing docs and plans
+without rewriting what is there.
 
 ## 3. Tailor it
 

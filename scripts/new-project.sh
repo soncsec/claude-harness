@@ -248,7 +248,11 @@ main() {
   printf 'Protection: %s\n' "$protection"
   printf 'Next:\n'
   (( empty )) || printf '  - Merge the setup pull request (tick the bypass box: you cannot approve your own PR).\n'
-  printf '  - cd %s && claude\n' "$DIR"
+  if (( empty )); then
+    printf '  - cd %s && claude, then type /kickoff to plan the project together\n' "$DIR"
+  else
+    printf '  - cd %s && claude, then type /kickoff --adopt to fill in missing docs and plans\n' "$DIR"
+  fi
   printf '  - Optional, once per harness version: %s/docs/red-team-checklist.md\n' "$HARNESS_DIR"
 }
 

@@ -92,6 +92,15 @@ def test_force_replaces_changed_settings(project):
     assert settings.read_text() == (REPO / "core" / "claude" / "settings.json").read_text()
 
 
+def test_kickoff_skill_is_installed(project):
+    install(project, "--yes")
+    skill = project / ".claude" / "skills" / "kickoff"
+    source = REPO / "core" / "claude" / "skills" / "kickoff"
+    installed = {p.relative_to(skill) for p in skill.rglob("*") if p.is_file()}
+    assert installed == {p.relative_to(source) for p in source.rglob("*") if p.is_file()}
+    assert (skill / "SKILL.md").read_text() == (source / "SKILL.md").read_text()
+
+
 def test_issue_forms_are_installed(project):
     install(project, "--yes")
     forms = project / ".github" / "ISSUE_TEMPLATE"
@@ -154,3 +163,34 @@ def test_existing_quality_gates_are_kept(project):
     (project / "quality-gates.toml").write_text("# mine\n")
     install(project, "--yes")
     assert (project / "quality-gates.toml").read_text() == "# mine\n"
+
+
+def add_python_project(root: Path) -> None:
+    (root / "src").mkdir(parents=True)
+    (root / "uv.lock").write_text("version = 1\n")
+
+
+def test_empty_coverage_list_is_filled_once_code_exists(project):
+    # A new project has no code at install time; its walking skeleton adds some later.
+    install(project, "--yes")
+    add_python_project(project)
+    plan = install(project, "--dry-run")
+    assert "fill     quality-gates.toml" in plan.stdout
+    result = install(project, "--yes")
+    assert "Coverage gate: added" in result.stdout
+    text = (project / "quality-gates.toml").read_text()
+    assert tomllib.loads(text)["coverage"]["projects"] == [
+        {"path": ".", "source": ["src"], "minimum": 80}
+    ]
+    assert text.startswith("# Quality gates")  # the explanations are kept
+
+
+def test_coverage_list_with_entries_is_never_changed(project):
+    add_python_project(project / "api")
+    install(project, "--yes")
+    gates = project / "quality-gates.toml"
+    raised = gates.read_text().replace("minimum = 80", "minimum = 90")
+    gates.write_text(raised)
+    add_python_project(project / "worker")
+    install(project, "--yes", "--force")
+    assert gates.read_text() == raised

@@ -23,7 +23,8 @@ What it applies:
   ruleset protect-tags   Only you create, move or delete tags.
                          (core/github/ruleset-tags.json)
   repo settings          Auto-merge off; merged branches deleted; the Actions
-                         token is read-only and cannot approve pull requests.
+                         token is read-only and cannot approve pull requests;
+                         private vulnerability reporting on (public repos).
   labels                 ready, needs-human, security and the issue-form kinds
                          (core/github/labels.json). Existing ones are updated.
   .github/CODEOWNERS     Created in the current git repo if missing, from
@@ -110,6 +111,13 @@ apply_settings() {
   log "Actions: read-only token, cannot approve pull requests"
   run gh api -X PUT "repos/$REPO/actions/permissions/workflow" \
     -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false --silent
+  # Lets people report vulnerabilities privately (SECURITY.md points there).
+  # GitHub offers it on public repos only.
+  if [[ $(gh api "repos/$REPO" --jq .visibility 2>/dev/null) == public ]]; then
+    log "Private vulnerability reporting: on"
+    run gh api -X PUT "repos/$REPO/private-vulnerability-reporting" --silent \
+      || log "warning: could not turn on private vulnerability reporting"
+  fi
 }
 
 # Labels work on every plan, so a failure here is reported but not fatal.

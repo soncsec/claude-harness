@@ -24,11 +24,13 @@ Usage: scripts/install-harness.sh [--dry-run] [--yes] [--force] TARGET_DIR
 What gets installed:
   .claude/settings.json      permissions, sandbox and hook wiring
   .claude/hooks/*.py         the guardrail hooks
+  .claude/skills/kickoff/    the /kickoff skill: plan a project, then build its skeleton
   .claude/harness-version    which harness version was installed
   .github/workflows/*.yml    CI: checks and security scans on every pull request
   .github/harness/*.py       CI's test-integrity and coverage checkers
   .github/ISSUE_TEMPLATE/    issue forms (only those missing; yours are kept)
-  quality-gates.toml         coverage minimums CI enforces (only if missing)
+  quality-gates.toml         coverage minimums CI enforces (only if missing; an
+                             empty coverage list gets the projects found)
   CLAUDE.md                  starter agent instructions (only if missing)
   .gitignore                 a marked block of secret and local-state rules
 
@@ -141,6 +143,30 @@ build_plan() {
   for form in "$CORE"/github/ISSUE_TEMPLATE/*.yml; do
     plan_starter "$form" ".github/ISSUE_TEMPLATE/$(basename "$form")"
   done
+  local file
+  while IFS= read -r file; do
+    plan_file "$file" ".claude/skills/${file#"$CORE/claude/skills/"}"
+  done < <(find "$CORE/claude/skills" -type f | sort)
+}
+
+# Coverage entries for every Python project found: a folder (up to two levels
+# down) with both a uv.lock and a src/ folder.
+detect_projects() {
+  local lock dir rel
+  while IFS= read -r lock; do
+    dir=$(dirname "$lock")
+    [[ -d $dir/src ]] || continue
+    rel=${dir#"$TARGET"}
+    rel=${rel#/}
+    printf '  { path = "%s", source = ["src"], minimum = 80 },\n' "${rel:-.}"
+  done < <(find "$TARGET" -maxdepth 3 -name uv.lock -not -path '*/.cache/*' -not -path '*/.venv/*' | sort)
+}
+
+# True when quality-gates.toml exists with an empty coverage list.
+coverage_list_is_empty() {
+  python3 -c 'import sys, tomllib
+data = tomllib.load(open(sys.argv[1], "rb"))
+sys.exit(0 if data.get("coverage", {}).get("projects") == [] else 1)' "$1" 2>/dev/null
 }
 
 print_plan() {
@@ -163,7 +189,12 @@ print_plan() {
     printf '  %s%-8s%s %s\n' "$GREEN" "new" "$RESET" "CLAUDE.md"
   fi
   if [[ -e $TARGET/quality-gates.toml ]]; then
-    printf '  %-8s %s\n' "keep" "quality-gates.toml (yours is kept)"
+    if coverage_list_is_empty "$TARGET/quality-gates.toml" && [[ -n $(detect_projects) ]]; then
+      printf '  %s%-8s%s %s\n' "$YELLOW" "fill" "$RESET" \
+        "quality-gates.toml (its empty coverage list gets the projects found)"
+    else
+      printf '  %-8s %s\n' "keep" "quality-gates.toml (yours is kept)"
+    fi
   else
     printf '  %s%-8s%s %s\n' "$GREEN" "new" "$RESET" "quality-gates.toml"
   fi
@@ -212,19 +243,31 @@ install_files() {
   fi
 }
 
-# Create quality-gates.toml if missing, measuring every Python project found:
-# a folder (up to two levels down) with both a uv.lock and a src/ folder.
+# Create quality-gates.toml if missing, measuring every Python project found.
+# If it exists with an empty coverage list (the project had no code yet when the
+# harness was installed), fill that list in. A list with entries is never changed.
 install_quality_gates() {
-  local dest="$TARGET/quality-gates.toml" projects='' lock dir rel content
-  [[ -e $dest ]] && return 0
+  local dest="$TARGET/quality-gates.toml" projects content
   [[ $MODE == dry-run ]] && return 0
-  while IFS= read -r lock; do
-    dir=$(dirname "$lock")
-    [[ -d $dir/src ]] || continue
-    rel=${dir#"$TARGET"}
-    rel=${rel#/}
-    projects+="  { path = \"${rel:-.}\", source = [\"src\"], minimum = 80 },"$'\n'
-  done < <(find "$TARGET" -maxdepth 3 -name uv.lock -not -path '*/.cache/*' -not -path '*/.venv/*' | sort)
+  projects=$(detect_projects)
+  if [[ -e $dest ]]; then
+    if [[ -z $projects ]] || ! coverage_list_is_empty "$dest"; then
+      return 0
+    fi
+    if python3 -c 'import re, sys
+path, projects = sys.argv[1], sys.argv[2]
+text = open(path).read()
+text, count = re.subn(r"^projects = \[\s*\]", lambda _: "projects = [\n" + projects + "\n]",
+                      text, count=1, flags=re.MULTILINE)
+if count:
+    open(path, "w").write(text)' "$dest" "$projects"; then
+      log "Coverage gate: added the projects found to quality-gates.toml."
+    else
+      warn "Could not update quality-gates.toml; add the coverage entries by hand."
+    fi
+    return 0
+  fi
+  [[ -n $projects ]] && projects+=$'\n'
   content=$(<"$CORE/quality-gates.template.toml")
   content=${content//\{\{PROJECTS\}\}/$projects}
   printf '%s\n' "$content" > "$dest"
