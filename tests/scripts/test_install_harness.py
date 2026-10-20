@@ -92,6 +92,26 @@ def test_force_replaces_changed_settings(project):
     assert settings.read_text() == (REPO / "core" / "claude" / "settings.json").read_text()
 
 
+def test_issue_forms_are_installed(project):
+    install(project, "--yes")
+    forms = project / ".github" / "ISSUE_TEMPLATE"
+    assert {p.name for p in forms.iterdir()} == {
+        p.name for p in (REPO / "core" / "github" / "ISSUE_TEMPLATE").iterdir()
+    }
+
+
+def test_your_issue_forms_are_kept_even_with_force(project):
+    # Forms are the project's to change; updates never overwrite them.
+    install(project, "--yes")
+    form = project / ".github" / "ISSUE_TEMPLATE" / "feature.yml"
+    form.write_text("name: Our feature form\n")
+    (project / ".github" / "ISSUE_TEMPLATE" / "chore.yml").unlink()
+    result = install(project, "--yes", "--force")
+    assert form.read_text() == "name: Our feature form\n"
+    assert "keep     .github/ISSUE_TEMPLATE/feature.yml (yours is kept)" in result.stdout
+    assert (project / ".github" / "ISSUE_TEMPLATE" / "chore.yml").is_file()  # missing: added
+
+
 def test_existing_gitignore_is_appended_not_replaced(project):
     (project / ".gitignore").write_text("node_modules/")  # no trailing newline
     install(project, "--yes")

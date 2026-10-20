@@ -76,6 +76,19 @@ changes you always want to see, for example:
 To review every PR instead, add `* @you`. Agents cannot edit `CODEOWNERS`
 themselves; commit the change through a pull request of your own.
 
+### Changing the issue forms or labels
+
+The forms in `.github/ISSUE_TEMPLATE/` are yours once installed: add fields,
+reword them, and harness updates never replace them. Keep the field names
+agents rely on (`Goal`, `Acceptance criteria`, `Out of scope`, and the
+needs-human ones), because agents write issue bodies with those headings.
+Updates add any form that is missing, so a form you delete comes back; it is
+simpler to keep the set and add your own beside it.
+
+`scripts/github-setup.sh` creates the labels in `core/github/labels.json`, and
+resets their color and description on each run. Labels you add on GitHub
+yourself are left alone.
+
 ## Path syntax cheat sheet
 
 Permission rules and sandbox paths use **different** conventions:

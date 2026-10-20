@@ -111,6 +111,8 @@ def test_new_empty_repo_end_to_end(setup):
         ".github/CODEOWNERS",
         ".github/workflows/ci.yml",
         ".github/workflows/security.yml",
+        ".github/ISSUE_TEMPLATE/feature.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
     ):
         assert expected in files
     codeowners = git("-C", str(setup["bare"]), "show", "main:.github/CODEOWNERS")
@@ -121,6 +123,8 @@ def test_new_empty_repo_end_to_end(setup):
     calls = setup["log"].read_text()
     assert "rulesets" in calls
     assert "actions/permissions/workflow" in calls
+    for label in ("ready", "needs-human", "security"):
+        assert f"label create {label} --repo owner/repo" in calls
     assert "Done in" in result.stdout
     assert "agent identity step" in result.stdout  # skipped: no app configured
 
@@ -181,6 +185,22 @@ def test_github_setup_alone_exits_3_on_free_private(setup):
     )
     assert result.returncode == 3
     assert "local guardrails only" in result.stdout
+    # Labels work on every plan, so they are still created.
+    assert "label create ready --repo owner/repo" in setup["log"].read_text()
+
+
+def test_github_setup_dry_run_lists_the_labels_and_creates_none(setup):
+    result = subprocess.run(
+        [str(REPO / "scripts" / "github-setup.sh"), "--dry-run", "owner/repo"],
+        cwd=setup["project"],
+        capture_output=True,
+        text=True,
+        env=setup["env"],
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "+ gh label create needs-human --repo owner/repo" in result.stdout
+    assert "label create" not in setup["log"].read_text()
 
 
 def test_create_warns_up_front_on_free_plan(setup, tmp_path):

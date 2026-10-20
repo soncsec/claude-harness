@@ -47,6 +47,9 @@
 - Subagents cannot ask the operator: return the question to the main agent.
 - Anything the operator must do later becomes a GitHub issue labeled `needs-human`
   with exact steps.
+- `gh issue create` skips the issue forms, so write the body with the matching
+  form's headings from `.github/ISSUE_TEMPLATE/` (`### Goal`,
+  `### Acceptance criteria`, ...), and add the form's label.
 
 ## When something fails
 

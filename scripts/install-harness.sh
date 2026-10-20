@@ -27,6 +27,7 @@ What gets installed:
   .claude/harness-version    which harness version was installed
   .github/workflows/*.yml    CI: checks and security scans on every pull request
   .github/harness/*.py       CI's test-integrity and coverage checkers
+  .github/ISSUE_TEMPLATE/    issue forms (only those missing; yours are kept)
   quality-gates.toml         coverage minimums CI enforces (only if missing)
   CLAUDE.md                  starter agent instructions (only if missing)
   .gitignore                 a marked block of secret and local-state rules
@@ -115,8 +116,18 @@ plan_file() {
   STATES+=("$state")
 }
 
+# Starter files belong to the project once installed: added when missing, never replaced.
+KEPT=()
+plan_starter() {
+  if [[ -e $TARGET/$2 ]]; then
+    KEPT+=("$2")
+  else
+    plan_file "$1" "$2"
+  fi
+}
+
 build_plan() {
-  local hook workflow
+  local hook workflow checker form
   plan_file "$CORE/claude/settings.json" ".claude/settings.json"
   for hook in "$CORE"/claude/hooks/*.py; do
     plan_file "$hook" ".claude/hooks/$(basename "$hook")"
@@ -126,6 +137,9 @@ build_plan() {
   done
   for checker in "$CORE"/github/harness/*.py; do
     plan_file "$checker" ".github/harness/$(basename "$checker")"
+  done
+  for form in "$CORE"/github/ISSUE_TEMPLATE/*.yml; do
+    plan_starter "$form" ".github/ISSUE_TEMPLATE/$(basename "$form")"
   done
 }
 
@@ -139,6 +153,9 @@ print_plan() {
       *)       color='' ;;
     esac
     printf '  %s%-8s%s %s\n' "$color" "${STATES[$i]}" "$RESET" "${DESTS[$i]}"
+  done
+  for i in "${!KEPT[@]}"; do
+    printf '  %-8s %s (yours is kept)\n' "keep" "${KEPT[$i]}"
   done
   if [[ -e $TARGET/CLAUDE.md ]]; then
     printf '  %-8s %s (yours is kept; compare with core/CLAUDE.template.md)\n' "keep" "CLAUDE.md"

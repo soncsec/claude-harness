@@ -54,6 +54,7 @@ enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers.
 | First commit | A new, empty repo: pushed straight to `main`, before any rules exist. A repo with history: a pull request for you to merge. |
 | CI | Checks and security scans on every pull request ([ci.md](ci.md)). |
 | GitHub rules | Only pull requests reach `main`, and only once the CI checks pass; no force pushes; tags locked. |
+| Issues | Feature, Bug, Chore and Needs-human forms, with blank issues turned off, and the labels agents use: `ready`, `needs-human`, `security`. |
 | Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
 
 It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`,
