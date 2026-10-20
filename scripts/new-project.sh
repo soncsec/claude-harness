@@ -65,10 +65,14 @@ run() {
 
 SETUP_FILES=(.claude CLAUDE.md .gitignore .github/CODEOWNERS)
 
-# True when OWNER is your own account and it is on GitHub Free. (An
-# organization's plan is not checked here; github-setup.sh reports it.)
-on_free_plan() {
-  [[ $(gh api user --jq '.login + " " + (.plan.name // "")' 2>/dev/null) == "$1 free" ]]
+# OWNER's GitHub plan ("free", "pro", ...) when OWNER is your own account and
+# GitHub shows the plan; empty otherwise (gh logins often lack the scope to read
+# it, and an organization's plan is not checked here).
+account_plan() {
+  local line
+  line=$(gh api user --jq '.login + " " + (.plan.name // "")' 2>/dev/null) || return 0
+  [[ ${line%% *} == "$1" ]] && printf '%s' "${line#* }"
+  return 0
 }
 
 # --- Agent identity helpers --------------------------------------------------------
@@ -82,11 +86,13 @@ import json, sys
 owner = sys.argv[1].lower()
 for inst in json.load(sys.stdin):
     account = inst.get("account") or {}
-    if (account.get("login") or "").lower() == owner:
+    login = account.get("login") or ""
+    if login.lower() == owner:
         if account.get("type") == "Organization":
-            print(f"https://github.com/organizations/{account[\"login\"]}/settings/installations/{inst[\"id\"]}")
+            base = "https://github.com/organizations/" + login + "/settings/installations/"
         else:
-            print(f"https://github.com/settings/installations/{inst[\"id\"]}")
+            base = "https://github.com/settings/installations/"
+        print(base + str(inst["id"]))
         break
 ' "$owner"
 }
@@ -141,10 +147,17 @@ main() {
     valid_repo "$CREATE" || die "--create needs OWNER/NAME"
     DIR=${DIR:-./${CREATE#*/}}
     [[ ! -e $DIR ]] || die "$DIR already exists"
-    if [[ $VISIBILITY == --private ]] && on_free_plan "${CREATE%%/*}"; then
-      log "Note: on GitHub Free, private repos cannot have GitHub rules (rulesets)."
-      log "      $CREATE will be protected by the local guardrails only."
-      log "      For GitHub-side protection too, use --public or GitHub Pro."
+    if [[ $VISIBILITY == --private ]]; then
+      case $(account_plan "${CREATE%%/*}") in
+        free)
+          log "Note: on GitHub Free, private repos cannot have GitHub rules (rulesets)."
+          log "      $CREATE will be protected by the local guardrails only."
+          log "      For GitHub-side protection too, use --public or GitHub Pro." ;;
+        '')
+          log "Note: if ${CREATE%%/*} is on GitHub Free, a private repo cannot have GitHub"
+          log "      rules (rulesets) and will be protected by the local guardrails only."
+          log "      Step 5 will tell you which applies." ;;
+      esac
     fi
     step "Create $CREATE on GitHub (${VISIBILITY#--}) and clone it into $DIR"
     run gh repo create "$CREATE" "$VISIBILITY" --description "Built with claude-harness"
