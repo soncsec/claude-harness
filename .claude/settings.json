@@ -23,6 +23,7 @@
       "Read(~/.claude/.credentials.json)",
       "Edit(/.claude/**)",
       "Edit(/.github/workflows/**)",
+      "Edit(/.github/harness/**)",
       "Edit(/.github/CODEOWNERS)",
       "Edit(/.pre-commit-config.yaml)",
       "Edit(/.security/**)",
@@ -94,6 +95,7 @@
       "denyWrite": [
         ".claude",
         ".github/workflows",
+        ".github/harness",
         ".github/CODEOWNERS",
         ".pre-commit-config.yaml",
         ".security",
