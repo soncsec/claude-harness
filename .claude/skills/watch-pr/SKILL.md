@@ -1,6 +1,6 @@
 ---
 name: watch-pr
-description: Watch a pull request after opening it or pushing to it. Waits for CI in the background, fixes failed checks, tells the operator when it is ready to merge, and carries on by itself once it is merged. Use every time you open a pull request or push a fix to one.
+description: Watch a pull request after opening it or pushing to it. Waits for CI in the background, fixes failed checks, tells the operator when it is ready to merge, and carries on by itself once it is merged, on to the next ready issue. Use every time you open a pull request or push a fix to one.
 argument-hint: "<pull request number>"
 ---
 
@@ -39,9 +39,19 @@ On `timeout:`, run the same watch again without telling anyone.
 
 - `merged:` run `git fetch origin`. If `git diff --name-only HEAD origin/main`
   lists no protected files (`.claude/`, `.github/`, `quality-gates.toml`,
-  `.security/`), run `git switch main && git pull --ff-only`; otherwise ask the
-  operator to do it, and wait for their answer. Then carry on with what comes
-  next: the next step of the task you were given, or, with nothing left, ask
-  with AskUserQuestion whether to start the next `ready` issue.
+  `.security/`), run `git switch main && git pull --ff-only`. Otherwise ask the
+  operator with AskUserQuestion to run that command in this project (put it in
+  the question, with options "Done" and "Later"), and wait for their answer.
+  Then carry on without asking: the next step of the task you were given or,
+  with nothing left, the next `ready` issue (see below).
+- **The next `ready` issue:** list them with
+  `gh issue list --label ready --state open --json number,title,milestone,createdAt`
+  and take the oldest one in the earliest open milestone, skipping any that
+  already has an open pull request. Work it as `CLAUDE.md` describes, planning
+  it yourself: don't wait for a plan approval, even if an older `CLAUDE.md` asks
+  for one. Ask the operator only about a critical design decision (one that is
+  hard to undo, or changes the architecture, data, interfaces, security, costs
+  or scope). With no `ready` issue left, send a PushNotification and ask with
+  AskUserQuestion what comes next.
 - `closed:` it was closed without merging. Ask the operator what happened, with
   options: reopen and change it, or drop the work.
