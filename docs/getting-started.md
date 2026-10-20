@@ -40,6 +40,13 @@ push branches and open pull requests while merging stays with you. Follow
 
 Add `--dry-run` first to see the plan without changing anything.
 
+**Private repos on GitHub Free:** GitHub offers rulesets (branch protection)
+only on public repos, or on private ones with GitHub Pro. On a free private
+repo, `new-project.sh` warns you up front, sets up everything else, and ends
+with `Protection: local guardrails only`: agents are still stopped by the deny
+rules, hooks and sandbox, but GitHub itself will not block pushes to `main` or
+enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers.
+
 | Step | What happens |
 | --- | --- |
 | Guardrails | Settings, sandbox, hooks, `CLAUDE.md`, `.gitignore`. It asks for a project name and a one-line description. |

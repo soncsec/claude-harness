@@ -18,11 +18,26 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "new-project.sh"
 REMOTE = "https://github.com/owner/repo.git"
 
+# FAKE_GH_MODE: "" (rulesets work), "free" (GitHub Free private repo), "broken".
+# FAKE_GH_PLAN: the plan `gh api user` reports for the account "owner".
 FAKE_GH = """#!/bin/bash
 printf '%s\\n' "$*" >> {log}
 case "$*" in
   *permissions.admin*) echo true ;;
   *defaultBranchRef*)  echo main ;;
+  "api user --jq"*)    echo "owner ${{FAKE_GH_PLAN:-pro}}" ;;
+  "api repos/owner/repo/rulesets")
+    case "${{FAKE_GH_MODE:-}}" in
+      free)
+        msg="Upgrade to GitHub Pro or make this repository public to enable this feature."
+        echo "{{\\"message\\":\\"$msg\\",\\"status\\":\\"403\\"}}"
+        echo "gh: $msg (HTTP 403)" >&2
+        exit 1 ;;
+      broken)
+        echo "gh: Server Error (HTTP 500)" >&2
+        exit 1 ;;
+      *) echo '[]' ;;
+    esac ;;
 esac
 exit 0
 """
@@ -126,6 +141,54 @@ def test_repo_with_history_gets_a_pull_request(setup):
     main_files = git("-C", str(setup["bare"]), "ls-tree", "-r", "--name-only", "main").split()
     assert ".claude/settings.json" not in main_files  # main untouched: changes wait in a PR
     assert "pr create" in setup["log"].read_text()
+
+
+def test_free_private_repo_finishes_with_local_protection(setup):
+    setup["env"]["FAKE_GH_MODE"] = "free"
+    result = run(setup, "--yes", str(setup["project"]))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Done in" in result.stdout
+    assert "Protection: local guardrails only (GitHub Free" in result.stdout
+    assert "GitHub Free has rulesets" in result.stderr
+    # Everything except the rulesets was still done.
+    files = git("-C", str(setup["bare"]), "ls-tree", "-r", "--name-only", "main").split()
+    assert ".github/CODEOWNERS" in files
+    assert "actions/permissions/workflow" in setup["log"].read_text()
+    assert "-X POST repos/owner/repo/rulesets" not in setup["log"].read_text()
+
+
+def test_failed_rules_step_does_not_stop_the_setup(setup):
+    setup["env"]["FAKE_GH_MODE"] = "broken"
+    result = run(setup, "--yes", str(setup["project"]))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "GitHub rules FAILED" in result.stdout
+    assert "Done in" in result.stdout
+
+
+def test_github_setup_alone_exits_3_on_free_private(setup):
+    setup["env"]["FAKE_GH_MODE"] = "free"
+    result = subprocess.run(
+        [str(REPO / "scripts" / "github-setup.sh"), "owner/repo"],
+        cwd=setup["project"],
+        capture_output=True,
+        text=True,
+        env=setup["env"],
+        check=False,
+    )
+    assert result.returncode == 3
+    assert "local guardrails only" in result.stdout
+
+
+def test_create_warns_up_front_on_free_plan(setup, tmp_path):
+    setup["env"]["FAKE_GH_PLAN"] = "free"
+    setup["env"]["FAKE_GH_MODE"] = "free"
+    target = tmp_path / "created"
+    result = run(setup, "--yes", "--create", "owner/repo", str(target))
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = result.stdout
+    assert "on GitHub Free, private repos cannot have GitHub rules" in out
+    assert out.index("on GitHub Free") < out.index("[1] Create")
+    assert "repo create owner/repo --private" in setup["log"].read_text()
 
 
 def test_dry_run_changes_nothing(setup):

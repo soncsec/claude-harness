@@ -97,6 +97,11 @@ This applies the `protect-main` and `protect-tags` rulesets, turns auto-merge
 off, makes the Actions token read-only, and creates `.github/CODEOWNERS` naming
 you. Commit `CODEOWNERS` through a pull request.
 
+On a **private repo with GitHub Free**, GitHub does not offer rulesets: the
+script says so, applies everything else, and exits with status 3. The agent can
+then technically push to `main` with its token; only the local guardrails stop
+it. Make the repo public or use GitHub Pro to add GitHub's own protection.
+
 Ordinary PRs, the agent's and yours, merge with the normal **Merge** button: no
 approval needed. A PR that touches a file listed in `CODEOWNERS` needs your
 approval first; if it is your **own** PR, use your admin bypass instead (GitHub
