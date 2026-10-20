@@ -1,0 +1,4 @@
+# Every issue starts from a form, so the fields agents rely on are always there.
+# With private vulnerability reporting on, GitHub also offers "Report a
+# vulnerability" here, which keeps security reports out of public issues.
+blank_issues_enabled: false
