@@ -53,11 +53,11 @@ Open <https://github.com/settings/apps/new>:
 
 Click **Create GitHub App** and note the **Client ID** on the app's page.
 
-## 2. Install it on one repo
+## 2. Install it on your repo
 
 In the app's left menu: **Install App**, then **Install**, **Only select
-repositories**, pick your repo, **Install**. The URL you land on ends in
-`/installations/<number>`: that number is the **Installation ID**.
+repositories**, pick your repo, **Install**. One app serves all your projects:
+for each new project you add its repo here (see "Adding another project").
 
 ## 3. Store the key and config
 
@@ -72,14 +72,14 @@ chmod 600 ~/.config/claude-harness/agent-app.pem
 
 cat > ~/.config/claude-harness/agent-app.conf <<'EOF'
 CLIENT_ID=<client id from step 1>
-INSTALLATION_ID=<installation id from step 2>
-REPO=<owner>/<repo>
 APP_SLUG=<app name, lowercase, as in the app's URL>
 EOF
 chmod 600 ~/.config/claude-harness/agent-app.conf
 ```
 
-Never paste the key into a chat, an issue or a commit.
+The Client ID is in the **About** section of the app's settings page
+(`https://github.com/settings/apps/<app-name>`) and starts with `Iv`. Never
+paste the key into a chat, an issue or a commit.
 
 ## 4. Apply the rules
 
@@ -101,38 +101,51 @@ you approved but wanted to land later), add `{ "type": "update" }` to the rules
 in `core/github/ruleset-main.json` and re-run this step. Every merge, including
 agent PRs, then needs your bypass.
 
-## 5. Check it
+## 5. Wire the project and keep its token fresh
 
 ```sh
-scripts/agent-token.sh check
+scripts/agent-token.sh configure ~/dev/<project>  # once per project
+scripts/agent-token.sh install-timer              # once per machine
+scripts/agent-token.sh status                     # when does each token expire?
 ```
 
-This mints a token, confirms which identity it belongs to, and revokes it again.
+`configure` finds the project's repo from its `origin` remote (or pass
+`--repo owner/name`), starts keeping a token for it, mints the first one, and
+writes the project's `.claude/settings.local.json`: personal, git-ignored, and
+unwritable by agents. That file points `gh` and `git` at the project's token
+and labels commits as `<app>[bot]`. Your own `gh` in your own terminal is
+unaffected.
 
-## 6. Keep the token fresh, and wire the project
-
-```sh
-scripts/agent-token.sh install-timer             # renews every 20 minutes, in the background
-scripts/agent-token.sh configure ~/dev/<project> # Claude sessions there act as the app
-scripts/agent-token.sh status                    # when does the current token expire?
-```
+Each project gets **its own token, limited to that one repo**, in
+`~/.cache/claude-harness/<owner>/<repo>/`. An agent working on one project
+cannot touch another.
 
 `install-timer` sets up a systemd user timer. Every 20 minutes, and right after
-login or waking from sleep, it mints a fresh 1-hour token into
-`~/.cache/claude-harness/gh/` and revokes the previous one. `gh`, and `git`
-through `gh`, read that file on every command, so running sessions pick up each
-renewal without restarting.
+login or waking from sleep, it renews every configured project's 1-hour token
+and revokes the previous one. `gh`, and `git` through `gh`, read the token file
+on every command, so running sessions pick up each renewal without restarting.
 
-`configure` writes the project's `.claude/settings.local.json`: personal,
-git-ignored, and unwritable by agents. It points `gh` and `git` at the token
-file and labels commits as `<app>[bot]`. Run it once per project. Your own `gh`
-in your own terminal is unaffected.
+`scripts/agent-token.sh check` mints and revokes a token for every configured
+project: a quick way to prove the key, the config and the installation work.
+
+## Adding another project
+
+1. Add its repo to the app: <https://github.com/settings/installations>, then
+   **Configure** next to the app, then add the repo under
+   **Only select repositories**, then **Save**.
+2. `scripts/agent-token.sh configure ~/dev/<new-project>`
+
+The timer picks it up automatically. To stop: `scripts/agent-token.sh forget owner/name`.
 
 ## Daily use
 
 Just run `claude` in the project. Nothing to restart, nothing to remember.
 
 - Moved the harness repo? Run `install-timer` again: the timer stores its path.
+- Set up before per-project tokens (your `agent-app.conf` has `REPO=` and
+  `INSTALLATION_ID=` lines)? Run `configure` again for that project, then
+  delete those two lines and the old `~/.cache/claude-harness/gh/` folder.
+  `status` reminds you while the old folder exists.
 - No systemd on this machine? Start sessions with `scripts/agent-session.sh`
   instead: it renews the token in the background for as long as Claude runs.
 
