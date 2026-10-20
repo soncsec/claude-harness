@@ -35,6 +35,8 @@ def test_fresh_install(project):
     assert result.returncode == 0, result.stderr
     assert (project / ".claude" / "settings.json").is_file()
     assert (project / ".claude" / "hooks" / "guard_bash.py").is_file()
+    assert (project / ".github" / "workflows" / "ci.yml").is_file()
+    assert (project / ".github" / "workflows" / "security.yml").is_file()
     assert (project / ".claude" / "harness-version").read_text().startswith("claude-harness")
     claude_md = (project / "CLAUDE.md").read_text()
     assert claude_md.startswith("# my-app")

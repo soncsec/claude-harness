@@ -52,7 +52,8 @@ enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers.
 | Guardrails | Settings, sandbox, hooks, `CLAUDE.md`, `.gitignore`. It asks for a project name and a one-line description. |
 | CODEOWNERS | Changes to guardrail files need your review; everything else just needs you to click Merge. |
 | First commit | A new, empty repo: pushed straight to `main`, before any rules exist. A repo with history: a pull request for you to merge. |
-| GitHub rules | Only pull requests reach `main`; no force pushes; tags locked. |
+| CI | Checks and security scans on every pull request ([ci.md](ci.md)). |
+| GitHub rules | Only pull requests reach `main`, and only once the CI checks pass; no force pushes; tags locked. |
 | Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
 
 It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`,

@@ -5,6 +5,10 @@ UV ?= uv
 PORT ?= 8000
 # Per-project uv cache: works inside the sandbox and is not shared between projects.
 export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+# Tools run with `uv tool run` live in the project too (read-only home in the sandbox).
+export UV_TOOL_DIR ?= $(CURDIR)/.cache/uv-tools
+export UV_TOOL_BIN_DIR ?= $(CURDIR)/.cache/uv-tools/bin
+PIP_AUDIT ?= pip-audit==2.10.1
 
 .PHONY: help setup lint format test scan check run
 
@@ -26,8 +30,11 @@ format: ## Fix formatting and import order
 test: ## Run the tests
 	$(UV) run pytest
 
-scan: ## Security scanners (not set up yet: they arrive with CI in phase 2)
-	@echo "WARNING: no security scanners are configured yet; only ruff's S rules ran in 'make lint'."
+scan: ## Check locked dependencies for known vulnerabilities (CI also scans secrets and code)
+	@mkdir -p .cache
+	$(UV) export --frozen --format requirements-txt --no-emit-project -o .cache/requirements.txt
+	$(UV) tool run --from $(PIP_AUDIT) pip-audit -r .cache/requirements.txt \
+		--disable-pip --require-hashes --strict --cache-dir .cache/pip-audit
 
 check: lint test scan ## Run everything CI runs
 

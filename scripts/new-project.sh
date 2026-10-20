@@ -63,7 +63,7 @@ run() {
   if (( DRY_RUN )); then printf '  + %s\n' "$*"; else "$@"; fi
 }
 
-SETUP_FILES=(.claude CLAUDE.md .gitignore .github/CODEOWNERS)
+SETUP_FILES=(.claude CLAUDE.md .gitignore .github/CODEOWNERS .github/workflows)
 
 # OWNER's GitHub plan ("free", "pro", ...) when OWNER is your own account and
 # GitHub shows the plan; empty otherwise (gh logins often lack the scope to read

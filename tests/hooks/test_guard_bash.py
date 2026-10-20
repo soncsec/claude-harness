@@ -169,6 +169,9 @@ ALLOWED = [
     "gh issue create -t 'Key folder ~/.config/claude-harness is unreadable' -b 'mentions .env'",
     "gh pr create --title 'Multi-line' --body 'line one mentions .env\nline two mentions sudo'",
     "git commit -m 'Document scripts/new-project.sh'",
+    # staging the installer scripts is not running them
+    "git add scripts/install-harness.sh scripts/new-project.sh Makefile",
+    "git add scripts/github-setup.sh scripts/install-harness.sh",
     # copying OUT of a guardrail path (a backup) is fine
     "cp .claude/settings.json /tmp/settings-backup.json",
     'cp -r .claude "$TMPDIR/claude-backup"',

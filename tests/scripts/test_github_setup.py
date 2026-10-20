@@ -78,6 +78,11 @@ def test_codeowners_template_has_no_catch_all():
     )
 
 
+def test_ci_checks_are_required_before_merge():
+    checks = rule(MAIN, "required_status_checks")["parameters"]["required_status_checks"]
+    assert {c["context"] for c in checks} >= {"check", "secrets", "sast", "dependencies"}
+
+
 def test_only_admins_bypass_and_only_through_pull_requests():
     assert MAIN["bypass_actors"] == [
         {"actor_id": ADMIN_ROLE, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}

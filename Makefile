@@ -6,8 +6,15 @@ TARGET ?= .
 # Per-project uv cache: the sandbox blocks the shared ~/.cache/uv, and a shared
 # cache would let one project's agent plant packages another project installs.
 export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+# Tools run with `uv tool run` (pip-audit, zizmor) live in the project too:
+# ~/.local/share is read-only inside the sandbox.
+export UV_TOOL_DIR ?= $(CURDIR)/.cache/uv-tools
+export UV_TOOL_BIN_DIR ?= $(CURDIR)/.cache/uv-tools/bin
+# Same versions as core/github/workflows/security.yml (a test keeps them equal).
+PIP_AUDIT ?= pip-audit==2.10.1
+ZIZMOR ?= zizmor==1.30.1
 
-.PHONY: help setup lint format test check example-check doctor install-harness
+.PHONY: help setup lint format test scan check example-check doctor install-harness
 
 help: ## Show the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -20,6 +27,14 @@ lint: ## Check code style, likely bugs, security patterns and shell scripts
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
 	$(UV) run shellcheck -x scripts/*.sh scripts/lib/*.sh
+	$(UV) tool run --from $(ZIZMOR) zizmor --offline --min-severity medium \
+		core/github/workflows/*.yml $(wildcard .github/workflows/*.yml)
+
+scan: ## Check locked dependencies for known vulnerabilities (CI also scans secrets and code)
+	@mkdir -p .cache
+	$(UV) export --frozen --format requirements-txt --no-emit-project -o .cache/requirements.txt
+	$(UV) tool run --from $(PIP_AUDIT) pip-audit -r .cache/requirements.txt \
+		--disable-pip --require-hashes --strict --cache-dir .cache/pip-audit
 
 format: ## Fix formatting and import order
 	$(UV) run ruff format .
@@ -31,7 +46,7 @@ test: ## Run the test suite
 example-check: ## Run the example app's checks
 	$(MAKE) -C example-app check
 
-check: lint test example-check ## Run everything CI runs
+check: lint test scan example-check ## Run everything CI's `check` job runs
 
 doctor: ## Check this machine has the required tools (Debian 13)
 	scripts/setup-debian.sh --check
