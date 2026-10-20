@@ -1,0 +1,113 @@
+# Installed by claude-harness (source: core/github/workflows/security.yml).
+# Security scans on every pull request, on main, and weekly: new vulnerabilities
+# are found in code that has not changed.
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"
+
+# No permissions by default; each job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # scan every commit, not just the last one
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e  # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # needed for organizations only
+
+  sast:
+    name: sast
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: semgrep (error-severity findings fail the check)
+        run: >-
+          uvx --from semgrep==1.180.0 semgrep scan
+          --config p/default --config p/python
+          --severity ERROR --error --metrics off
+
+  dependencies:
+    name: dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: pip-audit every uv.lock (known vulnerabilities fail the check)
+        run: |
+          status=0
+          for lock in $(git ls-files '*uv.lock'); do
+            dir=$(dirname "$lock")
+            echo "::group::$lock"
+            (cd "$dir" \
+              && uv export --frozen --format requirements-txt --no-emit-project -o "$RUNNER_TEMP/req.txt" \
+              && uvx --from pip-audit==2.10.1 pip-audit -r "$RUNNER_TEMP/req.txt" \
+                   --disable-pip --require-hashes --strict) || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+  dependency-review:
+    name: dependency-review
+    # Needs the dependency graph: free on public repos only.
+    if: github.event_name == 'pull_request' && !github.event.repository.private
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: zizmor (security issues in these workflows fail the check)
+        env:
+          GH_TOKEN: ${{ github.token }}  # lets zizmor check pinned actions against GitHub
+        run: uvx --from zizmor==1.30.1 zizmor --min-severity medium .github/workflows
