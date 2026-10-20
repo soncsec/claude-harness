@@ -112,7 +112,8 @@ unregister_repo() {
 # owner/name of a project's GitHub remote (origin), or nothing.
 repo_from_remote() {
   local url
-  url=$(git -C "$1" remote get-url origin 2>/dev/null) || return 0
+  # The URL as configured: `remote get-url` would apply url.*.insteadOf rewrites.
+  url=$(git -C "$1" config --get remote.origin.url 2>/dev/null) || return 0
   url=${url%/}
   url=${url%.git}
   if [[ $url =~ ^(https://([^@/]*@)?|ssh://git@|git@)github\.com[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)$ ]]; then

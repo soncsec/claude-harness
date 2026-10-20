@@ -88,12 +88,13 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
     (
         "secret files or credentials",
         re.compile(
-            r"(?:^|[\s/=<>:(])\.env(?:\.[\w.-]+|rc)?(?=$|[\s;&|)])"
+            # Backticks count as boundaries too: echo `cat .env`
+            r"(?:^|[\s/=<>:(`])\.env(?:\.[\w.-]+|rc)?(?=$|[\s;&|)`])"
             r"|\.ssh(?:/|\b)|\bid_(?:rsa|ed25519|ecdsa|dsa)\b"
             r"|\.aws/|\.gnupg\b|\.kube/|\.config/gh\b|\.config/claude-harness\b"
             r"|\.credentials\.json\b|\.netrc\b|\.pypirc\b|\.git-credentials\b"
             r"|\.docker/config\.json\b"
-            r"|[\w/.-]+\.(?:pem|key|p12|pfx)(?=$|[\s;&|)])"
+            r"|[\w/.-]+\.(?:pem|key|p12|pfx)(?=$|[\s;&|)`])"
             r"|\bgh\s+auth\s+token\b"
         ),
         OFF_LIMITS_HINT,
@@ -134,8 +135,8 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
         "reinstalling the harness",
         re.compile(
             r"(?:^|[\n;&|(`]|\$\(|\b(?:bash|sh|exec|env|nohup|time)\s+)\s*"
-            r"(?:[\w./~$-]*/)?install-harness(?:\.sh)?(?=$|[\s;&|)])"
-            r"|\bmake\b[^;&|\n]*\binstall-harness\b"
+            r"(?:[\w./~$-]*/)?(?:install-harness|new-project)(?:\.sh)?(?=$|[\s;&|)])"
+            r"|\bmake\b[^;&|\n]*\b(?:install-harness|new-project)\b"
         ),
         "Installing or updating guardrails is an operator step. Ask the operator to run it.",
     ),
@@ -227,6 +228,14 @@ STDIN_MESSAGE_RX = re.compile(r"\s(?:-F\s*|--file[= ])-(?=\s|$)")
 QUOTED_HEREDOC_RX = re.compile(r"(?<!<)<<-?\s*(['\"])(\w+)\1")
 PLAIN_HEREDOC_RX = re.compile(r"(?<!<)<<-?\s*(\w+)")
 EXPANSION_RX = re.compile(r"\$\(|`")
+# Titles and descriptions of pull requests and issues are data, like commit
+# messages. Quoted values may span lines.
+GH_TEXT_ARG_RX = re.compile(
+    r"""(\bgh\s+(?:pr|issue)\s+(?:create|edit|comment|review)\b[^;&|\n]*?"""
+    r"""\s(?:-b|--body|-t|--title)(?:\s+|=))"""
+    r"""(?!MSG(?:\s|$))"""  # skip values already dropped, so each pass finds the next flag
+    r"""("(?:[^"\\]|\\.)*"|'[^']*'|[^\s;&|]+)"""
+)
 
 
 def _drop_message(match: re.Match[str]) -> str:
@@ -243,7 +252,13 @@ def strip_commit_messages(command: str) -> str:
     Commit messages often name protected files ("update .claude/settings.json").
     A message is kept, and so still checked, when it could run code: an unquoted
     or double-quoted message, or an unquoted heredoc, containing $(...) or backticks.
+    The same goes for `gh pr|issue create|edit|comment|review` titles and bodies.
     """
+    for _ in range(10):  # one flag value per pass; a command has only a few
+        stripped = GH_TEXT_ARG_RX.sub(_drop_message, command, count=1)
+        if stripped == command:
+            break
+        command = stripped
     lines = command.split("\n")
     out: list[str] = []
     i = 0
