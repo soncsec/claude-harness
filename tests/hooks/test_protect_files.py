@@ -21,6 +21,7 @@ def call(tool: str, path: str, cwd: str | None = None) -> dict:
         ("Edit", ".claude/settings.json"),
         ("Write", ".claude/hooks/new_hook.py"),
         ("Write", ".github/workflows/ci.yml"),
+        ("Edit", ".github/harness/test_integrity.py"),
         ("Edit", ".github/CODEOWNERS"),
         ("Edit", "quality-gates.toml"),
         ("Edit", ".pre-commit-config.yaml"),

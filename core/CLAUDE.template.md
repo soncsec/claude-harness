@@ -24,6 +24,9 @@
 - Never weaken a test, a coverage threshold or a quality gate to get a pass.
 - Never suppress a finding (`# nosec`, `# noqa`, `# nosemgrep`, `skip`, `xfail`);
   propose an exception to the operator instead.
+- If a test change is genuinely needed (removed feature, wrong test), say so in
+  the PR description: CI's `test-integrity` check fails it until the operator
+  approves.
 - Never read secret files (`.env`, keys, credentials). Document settings in `env.example`.
 - Never edit guardrail files (`.claude/`, `.github/workflows/`, `quality-gates.toml`,
   `.security/`). Write the change you want to `docs/proposals/<topic>.md`.

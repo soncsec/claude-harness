@@ -62,6 +62,7 @@ BLOCKED = [
     "echo '{}' > .claude/settings.json",
     "sed -i 's/deny/allow/' .claude/settings.json",
     "rm .github/workflows/ci.yml",
+    "sed -i 's/return 1/return 0/' .github/harness/test_integrity.py",
     "mv quality-gates.toml /tmp/",
     "git checkout -- .pre-commit-config.yaml",
     "tee .security/exceptions.yml < new.yml",

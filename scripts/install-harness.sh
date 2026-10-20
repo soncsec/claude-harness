@@ -26,6 +26,8 @@ What gets installed:
   .claude/hooks/*.py         the guardrail hooks
   .claude/harness-version    which harness version was installed
   .github/workflows/*.yml    CI: checks and security scans on every pull request
+  .github/harness/*.py       CI's test-integrity and coverage checkers
+  quality-gates.toml         coverage minimums CI enforces (only if missing)
   CLAUDE.md                  starter agent instructions (only if missing)
   .gitignore                 a marked block of secret and local-state rules
 
@@ -122,6 +124,9 @@ build_plan() {
   for workflow in "$CORE"/github/workflows/*.yml; do
     plan_file "$workflow" ".github/workflows/$(basename "$workflow")"
   done
+  for checker in "$CORE"/github/harness/*.py; do
+    plan_file "$checker" ".github/harness/$(basename "$checker")"
+  done
 }
 
 print_plan() {
@@ -139,6 +144,11 @@ print_plan() {
     printf '  %-8s %s (yours is kept; compare with core/CLAUDE.template.md)\n' "keep" "CLAUDE.md"
   else
     printf '  %s%-8s%s %s\n' "$GREEN" "new" "$RESET" "CLAUDE.md"
+  fi
+  if [[ -e $TARGET/quality-gates.toml ]]; then
+    printf '  %-8s %s\n' "keep" "quality-gates.toml (yours is kept)"
+  else
+    printf '  %s%-8s%s %s\n' "$GREEN" "new" "$RESET" "quality-gates.toml"
   fi
   if grep -qF '# >>> claude-harness >>>' "$TARGET/.gitignore" 2>/dev/null; then
     printf '  %-8s %s\n' "same" ".gitignore (harness block already present)"
@@ -185,6 +195,24 @@ install_files() {
   fi
 }
 
+# Create quality-gates.toml if missing, measuring every Python project found:
+# a folder (up to two levels down) with both a uv.lock and a src/ folder.
+install_quality_gates() {
+  local dest="$TARGET/quality-gates.toml" projects='' lock dir rel content
+  [[ -e $dest ]] && return 0
+  [[ $MODE == dry-run ]] && return 0
+  while IFS= read -r lock; do
+    dir=$(dirname "$lock")
+    [[ -d $dir/src ]] || continue
+    rel=${dir#"$TARGET"}
+    rel=${rel#/}
+    projects+="  { path = \"${rel:-.}\", source = [\"src\"], minimum = 80 },"$'\n'
+  done < <(find "$TARGET" -maxdepth 3 -name uv.lock -not -path '*/.cache/*' -not -path '*/.venv/*' | sort)
+  content=$(<"$CORE/quality-gates.template.toml")
+  content=${content//\{\{PROJECTS\}\}/$projects}
+  printf '%s\n' "$content" > "$dest"
+}
+
 install_claude_md() {
   local dest="$TARGET/CLAUDE.md" name description content
   [[ -e $dest ]] && return 0
@@ -208,9 +236,8 @@ install_gitignore() {
 }
 
 record_version() {
-  local version file="$TARGET/.claude/harness-version"
+  local version=$HARNESS_VERSION file="$TARGET/.claude/harness-version"
   [[ $MODE == dry-run ]] && return 0
-  version=$(git -C "$HARNESS_DIR" describe --always --dirty 2>/dev/null || echo unknown)
   # Same version already recorded: leave the file alone, so re-running the
   # installer does not show a change (the install time would differ).
   [[ -f $file && $(head -n1 "$file") == "claude-harness $version" ]] && return 0
@@ -245,6 +272,9 @@ main() {
     warn "$TARGET is not a git repository. Run 'git init' there so you can review and commit the install."
   fi
 
+  # Read the version before installing anything: when the harness installs into
+  # itself, the freshly installed files would otherwise mark it "-dirty".
+  HARNESS_VERSION=$(git -C "$HARNESS_DIR" describe --always --dirty 2>/dev/null || echo unknown)
   build_plan
   print_plan
 
@@ -258,6 +288,7 @@ main() {
 
   install_files
   install_claude_md
+  install_quality_gates
   install_gitignore
   record_version
 

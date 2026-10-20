@@ -1,0 +1,14 @@
+# Quality gates: the bars CI holds every pull request to.
+#
+# Only the operator changes this file: agents cannot edit it, and CODEOWNERS
+# requires your review. CI reads it from the target branch, so a pull request
+# cannot lower its own bar. Raise a minimum when coverage has grown; lowering
+# one should be rare and deliberate.
+
+[coverage]
+# Python projects whose tests run under coverage. Each needs a uv.lock.
+#   path:    the project's folder, relative to the repo root
+#   source:  folders to measure, relative to that project
+#   minimum: fail below this percentage of covered lines
+projects = [
+{{PROJECTS}}]

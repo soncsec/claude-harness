@@ -24,7 +24,7 @@ from _policy import OFF_LIMITS_HINT, PROPOSAL_HINT, deny, read_hook_input  # noq
 SEGMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
 
 PROTECTED = (
-    r"(?:\.claude(?:/|(?=$|[\s;&|)]))|\.github/workflows|\bCODEOWNERS\b"
+    r"(?:\.claude(?:/|(?=$|[\s;&|)]))|\.github/(?:workflows|harness)|\bCODEOWNERS\b"
     r"|\.pre-commit-config\.ya?ml|\.security(?:/|(?=$|[\s;&|)]))|quality-gates\.toml)"
 )
 PROTECTED_RX = re.compile(PROTECTED)
