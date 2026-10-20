@@ -74,6 +74,11 @@ before the next one starts:
 | 3. Plan | Which issues make up the first milestone | `ROADMAP.md`, a milestone and its issues (labeled `ready` once you approve), one pull request |
 | 4. Skeleton | The plan for the skeleton, and its dependencies | A minimal app with tests and `make check`, green in CI |
 
+You never have to check on it. When a kickoff pull request is ready, Claude
+notifies you (a desktop notification, and a phone push if Remote Control is
+on) and watches it; once you merge, it carries on by itself. The same goes for
+every pull request agents open later (the `watch-pr` skill).
+
 After the skeleton is merged, run `scripts/update-guardrails.sh` once in the
 project: it adds the new code to the coverage gate. Kickoff opens a
 `needs-human` issue to remind you.

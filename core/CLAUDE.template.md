@@ -15,9 +15,10 @@
 2. Propose a plan first; the operator approves it before you write code.
 3. Turn the issue's acceptance criteria into failing tests, then make them pass.
 4. Run `make lint test scan` and fix what they report before saying you are done.
-5. Open a pull request and tell the operator it is ready. Never push to `main`,
-   never merge, never approve: the operator merges. PRs that touch guardrail
-   files also wait for the operator's review.
+5. Open a pull request, then watch it with the `watch-pr` skill: it waits for CI,
+   tells the operator when the PR is ready, and carries on once it is merged.
+   Never push to `main`, never merge, never approve: the operator merges. PRs
+   that touch guardrail files also wait for the operator's review.
 
 ## Commands
 
@@ -49,6 +50,9 @@
 
 - Ask every question with the AskUserQuestion tool: 2-4 options, recommended first.
   Plain-text questions are easy to miss.
+- Never stop silently while the next step is the operator's. Ask with
+  AskUserQuestion, or, while a watcher waits for them (a merge), send a
+  PushNotification and say what you are watching.
 - Subagents cannot ask the operator: return the question to the main agent.
 - Anything the operator must do later becomes a GitHub issue labeled `needs-human`
   with exact steps.

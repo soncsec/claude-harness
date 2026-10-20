@@ -24,6 +24,7 @@ Usage: scripts/install-harness.sh [--dry-run] [--yes] [--force] TARGET_DIR
 What gets installed:
   .claude/settings.json      permissions, sandbox and hook wiring
   .claude/hooks/*.py         the guardrail hooks
+  .claude/tools/watch_pr.py  lets agents watch a pull request's checks and merge
   .claude/skills/kickoff/    the /kickoff skill: plan a project, then build its skeleton
   .claude/harness-version    which harness version was installed
   .github/workflows/*.yml    CI: checks and security scans on every pull request
@@ -133,6 +134,10 @@ build_plan() {
   plan_file "$CORE/claude/settings.json" ".claude/settings.json"
   for hook in "$CORE"/claude/hooks/*.py; do
     plan_file "$hook" ".claude/hooks/$(basename "$hook")"
+  done
+  local tool
+  for tool in "$CORE"/claude/tools/*.py; do
+    plan_file "$tool" ".claude/tools/$(basename "$tool")"
   done
   for workflow in "$CORE"/github/workflows/*.yml; do
     plan_file "$workflow" ".github/workflows/$(basename "$workflow")"

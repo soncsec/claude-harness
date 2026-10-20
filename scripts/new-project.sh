@@ -116,6 +116,8 @@ wire_agent_identity() {
     printf '\n    %s\n\n' "$page"
     if command -v xdg-open >/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
       xdg-open "$page" >/dev/null 2>&1 || true
+    else
+      log "No browser can open here (no desktop session): open the link on any device, such as your laptop or phone."
     fi
     log "Waiting for it (checking every 3 seconds; Ctrl-C to stop)..."
     until app_can_reach "$repo"; do

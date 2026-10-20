@@ -28,6 +28,10 @@ Arguments: `$ARGUMENTS`. With `--adopt`, follow the changes in
 - **Plain, short docs.** Fill every `<...>` in the templates from the
   operator's answers, and delete sections that don't apply. If something is
   unknown, ask; don't leave a placeholder or a TODO.
+- **Never stop silently.** When the next step is the operator's, ask with
+  AskUserQuestion. When it is a merge, watch the pull request as
+  `.claude/skills/watch-pr/SKILL.md` describes, so the operator is notified
+  and the kickoff carries on by itself once it is merged.
 - **Normal guardrails apply.** Work on a branch, stage files by name, never
   touch `.claude/`, `.github/` or `quality-gates.toml`, and never merge.
 - **State lives in the repo and GitHub, not in this chat.** If kickoff was
@@ -131,14 +135,16 @@ Approve, then commit these files by name.
      `ready`, now or later.
 5. Commit `ROADMAP.md`, push the branch and open a pull request: "Kickoff:
    definition, design and first milestone", listing the docs and linking the
-   milestone. Tell the operator it is ready to merge.
+   milestone. Then watch it (`.claude/skills/watch-pr/SKILL.md`): the operator
+   is notified when it is ready to merge, and its merge starts phase 4.
 
 ## Phase 4: Walking skeleton
 
-Ask whether the kickoff pull request is merged: "Merged, build the skeleton
-(Recommended)" / "Stop here for now". Then `git switch main`, `git pull
---ff-only`, and work the Walking skeleton issue the normal way (`CLAUDE.md`):
-plan, approval, tests first, `make check`, pull request with `Closes #<n>`.
+Start when the watcher reports the kickoff pull request merged; there is nothing
+to ask. (If the kickoff was interrupted, check with `gh pr view` that it is
+merged.) Switch to `main` and pull as the watch-pr skill describes, then work
+the Walking skeleton issue the normal way (`CLAUDE.md`): plan, approval, tests
+first, `make check`, pull request with `Closes #<n>`.
 
 For a Python project:
 
@@ -163,8 +169,9 @@ If the project has a deploy workflow (`.github/workflows/deploy.yml`), the
 skeleton is done only once it is live in staging and production with a clean
 security scan. Until then, done means CI is green and the operator has merged.
 
-End with a summary: what exists now, the milestone link, and the first
-`ready` feature issue to start on.
+Watch the skeleton pull request (`.claude/skills/watch-pr/SKILL.md`). Once it
+is merged, end with a summary (what exists now, the milestone link) and ask
+with AskUserQuestion whether to start the first `ready` feature issue.
 
 ## Adopting an existing project
 
