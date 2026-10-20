@@ -1,2 +1,8 @@
-# Every change needs a review from the repository owner.
-* @soncsec
+# Changes to these paths need the owner's review; everything else just needs Merge.
+/.claude/                  @soncsec
+/.github/                  @soncsec
+/.pre-commit-config.yaml   @soncsec
+/.security/                @soncsec
+/quality-gates.toml        @soncsec
+/core/                     @soncsec
+/scripts/                  @soncsec

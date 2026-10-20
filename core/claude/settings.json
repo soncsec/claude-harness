@@ -42,17 +42,10 @@
       "Bash(gh pr merge *)"
     ],
     "ask": [
-      "Bash(git push *)",
-      "Bash(gh pr merge *)",
-      "Bash(gh pr create *)",
-      "Bash(gh api *)",
-      "Bash(gh workflow run *)",
-      "Bash(gh release *)",
       "Bash(uv add *)",
       "Bash(uv remove *)",
       "Bash(pip install *)",
       "Bash(uv pip install *)",
-      "Bash(docker *)",
       "WebFetch"
     ],
     "allow": [
