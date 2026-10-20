@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = (ROOT / "core" / "claude" / "skills" / "watch-pr" / "SKILL.md").read_text()
 FRONTMATTER, BODY = re.match(r"---\n(.*?)\n---\n(.*)", SKILL, re.DOTALL).groups()
 TOOL = (ROOT / "core" / "claude" / "tools" / "watch_pr.py").read_text()
-TEMPLATE = (ROOT / "core" / "CLAUDE.template.md").read_text()
+RULES = (ROOT / "core" / "claude" / "rules" / "harness.md").read_text()
 
 
 def meta(key: str) -> str | None:
@@ -63,11 +63,11 @@ def test_operator_commands_go_in_a_question():
 
 
 def test_project_rules_point_at_the_skill():
-    assert "`watch-pr` skill" in TEMPLATE
+    assert "`watch-pr` skill" in RULES
 
 
 def test_project_rules_stop_only_for_design_decisions_and_merges():
-    assert "### Critical design decisions" in TEMPLATE
-    assert "start the next `ready` issue without asking" in TEMPLATE
-    assert "the operator approves it before you write code" not in TEMPLATE
-    assert "put the exact steps in the question" in TEMPLATE
+    assert "### Critical design decisions" in RULES
+    assert "start the next `ready` issue without asking" in RULES
+    assert "Propose a plan first" not in RULES
+    assert "put the exact steps in the question" in RULES

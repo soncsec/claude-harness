@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 import tomllib
@@ -42,9 +43,12 @@ def test_fresh_install(project):
     assert (project / ".github" / "harness" / "test_integrity.py").is_file()
     assert (project / "quality-gates.toml").is_file()
     assert (project / ".claude" / "harness-version").read_text().startswith("claude-harness")
+    rules = project / ".claude" / "rules" / "harness.md"
+    assert rules.read_text() == (REPO / "core" / "claude" / "rules" / "harness.md").read_text()
     claude_md = (project / "CLAUDE.md").read_text()
     assert claude_md.startswith("# my-app")
     assert "{{" not in claude_md
+    assert "## Workflow" not in claude_md  # the rules live in .claude/rules/harness.md
     assert "# >>> claude-harness >>>" in (project / ".gitignore").read_text()
     assert "Smoke test passed" in result.stdout
 
@@ -73,6 +77,38 @@ def test_existing_claude_md_is_kept(project):
     (project / "CLAUDE.md").write_text("# My own rules\n")
     install(project, "--yes")
     assert (project / "CLAUDE.md").read_text() == "# My own rules\n"
+
+
+def old_claude_md() -> str:
+    """CLAUDE.md as older installs wrote it: the harness's rules inside it."""
+    legacy = json.loads((REPO / "scripts" / "lib" / "claude-md-legacy.json").read_text())
+    sections = {heading: versions[-1] for heading, versions in legacy["sections"].items()}
+    return (
+        f"# my-app\n\nA notes API.\n\n{legacy['comments'][0]}\n\n"
+        + sections["## Workflow"]
+        + "\n## This app\n\nNotes are private to their owner.\n\n"
+        + "\n".join(sections[h] for h in ("## Hard rules", "## Asking the operator"))
+    )
+
+
+def test_old_harness_rules_move_out_of_claude_md(project):
+    claude_md = project / "CLAUDE.md"
+    claude_md.write_text(old_claude_md())
+    plan = install(project, "--dry-run")
+    assert "trim     CLAUDE.md" in plan.stdout
+    assert "removed  ## Workflow" in plan.stdout
+    assert claude_md.read_text() == old_claude_md()  # a dry run changes nothing
+
+    result = install(project, "--yes")
+    assert result.returncode == 0, result.stderr
+    text = claude_md.read_text()
+    assert text.startswith("# my-app\n\nA notes API.")
+    assert "## This app\n\nNotes are private to their owner." in text
+    for heading in ("## Workflow", "## Hard rules", "## Asking the operator"):
+        assert heading not in text
+    assert ".claude/rules/harness.md" in text  # the note at the top says where they went
+    assert (project / ".claude" / "rules" / "harness.md").is_file()
+    assert "keep     CLAUDE.md (yours is kept)" in install(project, "--dry-run").stdout
 
 
 def test_changed_settings_are_kept_without_force(project):

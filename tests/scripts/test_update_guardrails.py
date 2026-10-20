@@ -6,6 +6,7 @@ it was asked to do, as in test_new_project.py.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -174,6 +175,27 @@ def test_cancelling_leaves_no_trace(setup):
     status = git("-C", str(project), "status", "--porcelain")
     assert status.strip() == "?? .github/workflows/mine.yml"
     assert not any(b.startswith("update-guardrails-") for b in branches(setup))
+
+
+def test_old_harness_rules_leave_claude_md_in_the_update_pr(setup):
+    # An older install put the harness's rules in CLAUDE.md; the update moves them out.
+    project, env = setup["project"], setup["env"]
+    legacy = json.loads((REPO / "scripts" / "lib" / "claude-md-legacy.json").read_text())
+    workflow = legacy["sections"]["## Workflow"][0]
+    claude_md = project / "CLAUDE.md"
+    claude_md.write_text(f"# repo\n\n{legacy['comments'][0]}\n\n{workflow}\n## Ours\n\nKeep.\n")
+    git("-C", str(project), "commit", "-q", "-am", "older install", env=env)
+    git("-C", str(project), "push", "-q", env=env)
+
+    result = run(setup, "--yes")
+    assert result.returncode == 0, result.stdout + result.stderr
+    update = [b for b in branches(setup) if b.startswith("update-guardrails-")][0]
+    committed = git("-C", str(setup["bare"]), "show", f"{update}:CLAUDE.md")
+    assert "## Workflow" not in committed
+    assert "## Ours\n\nKeep.\n" in committed
+    files = git("-C", str(setup["bare"]), "ls-tree", "-r", "--name-only", update).split()
+    assert ".claude/rules/harness.md" in files
+    assert git("-C", str(project), "status", "--porcelain", "--", "CLAUDE.md") == ""
 
 
 def test_uncommitted_changes_are_refused(setup):

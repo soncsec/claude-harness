@@ -10,6 +10,10 @@ are for agents working on the harness; the rules projects receive live in
 - `.claude/` is the installed, active copy for this repo. It is operator-only;
   agents never edit it. The operator updates it with `make install-harness TARGET=.`
 - `scripts/` holds the setup and install scripts. `tests/` mirrors both.
+- `.claude/rules/harness.md` is the installed copy of the project rules
+  (`core/claude/rules/harness.md`). Here its hard rules and its rules for asking
+  apply, but not its issue workflow: there are no `ready` issues and no
+  `/kickoff`; the operator gives the work.
 
 ## Rules
 

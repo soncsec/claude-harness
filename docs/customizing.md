@@ -10,13 +10,23 @@ it, and prefer adding to a list over removing from one.
 | `.claude/settings.json` | Yes | Operator | Project rules everyone shares |
 | `.claude/settings.local.json` | No (git-ignored) | Operator | Your personal additions on this machine |
 | `~/.claude/settings.json` | No | Operator | Rules for every project on this machine |
-| `CLAUDE.md` | Yes | Operator or agent (reviewed in PR) | Instructions and project facts |
+| `.claude/rules/harness.md` | Yes | The harness (every update replaces it) | The rules every agent follows |
+| `CLAUDE.md` | Yes | Operator or agent (reviewed in PR) | Project facts and rules for this project only |
 
 Allow, ask and deny lists from all of these files are **combined**, and a deny
 anywhere wins. Agents cannot edit `.claude/`; you edit those files by hand, or
 apply a proposal an agent wrote in `docs/proposals/`.
 
 ## Common changes
+
+### Adding or changing an agent rule
+
+Write rules for one project in its `CLAUDE.md`. To change a workflow rule for
+that project, add a line to `CLAUDE.md` that says what to do instead. The hard
+rules cannot be changed this way; the hooks and settings enforce them anyway.
+`.claude/rules/harness.md` is replaced on every update, so changes made there
+are lost. To change a rule for every project, change
+`core/claude/rules/harness.md` in the harness.
 
 ### Your project needs another network domain
 
