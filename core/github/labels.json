@@ -1,0 +1,32 @@
+[
+  {
+    "name": "ready",
+    "color": "0e8a16",
+    "description": "Agents may work on this issue"
+  },
+  {
+    "name": "needs-human",
+    "color": "d93f0b",
+    "description": "Waiting on the operator; the issue has the exact steps"
+  },
+  {
+    "name": "security",
+    "color": "b60205",
+    "description": "Touches sign-in, sensitive data, untrusted input, secrets or dependencies"
+  },
+  {
+    "name": "feature",
+    "color": "1d76db",
+    "description": "Something new the project should do"
+  },
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Something does not work as it should"
+  },
+  {
+    "name": "chore",
+    "color": "c5def5",
+    "description": "Upkeep: tooling, docs, dependencies, refactoring"
+  }
+]

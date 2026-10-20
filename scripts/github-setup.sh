@@ -24,6 +24,8 @@ What it applies:
                          (core/github/ruleset-tags.json)
   repo settings          Auto-merge off; merged branches deleted; the Actions
                          token is read-only and cannot approve pull requests.
+  labels                 ready, needs-human, security and the issue-form kinds
+                         (core/github/labels.json). Existing ones are updated.
   .github/CODEOWNERS     Created in the current git repo if missing, from
                          core/github/CODEOWNERS.template: you own the guardrail
                          files. Commit it yourself; agents cannot edit it.
@@ -35,6 +37,7 @@ EOF
 
 HARNESS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 RULESETS=("$HARNESS_DIR/core/github/ruleset-main.json" "$HARNESS_DIR/core/github/ruleset-tags.json")
+LABELS="$HARNESS_DIR/core/github/labels.json"
 
 DRY_RUN=0
 REPO=''
@@ -109,6 +112,23 @@ apply_settings() {
     -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false --silent
 }
 
+# Labels work on every plan, so a failure here is reported but not fatal.
+apply_labels() {
+  local name color description names
+  names=$(python3 -c 'import json,sys; print(", ".join(l["name"] for l in json.load(open(sys.argv[1]))))' "$LABELS")
+  log "Labels: $names"
+  while IFS=$'\t' read -r name color description; do
+    if (( DRY_RUN )); then
+      printf '  + gh label create %s --repo %s --color %s --force\n' "$name" "$REPO" "$color"
+    elif ! gh label create "$name" --repo "$REPO" --color "$color" \
+        --description "$description" --force >/dev/null; then
+      log "warning: could not create or update the label '$name'"
+    fi
+  done < <(python3 -c 'import json,sys
+for l in json.load(open(sys.argv[1])):
+    print(l["name"], l["color"], l["description"], sep="\t")' "$LABELS")
+}
+
 write_codeowners() {
   local top owner file
   if ! top=$(git rev-parse --show-toplevel 2>/dev/null); then
@@ -147,6 +167,7 @@ main() {
     warn_no_rulesets
   fi
   apply_settings
+  apply_labels
   write_codeowners
 
   if (( ! DRY_RUN )); then

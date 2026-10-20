@@ -31,6 +31,9 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   See [docs/setup/github-app.md](docs/setup/github-app.md).
 - **CI on every pull request:** tests, secret scanning, code and dependency
   scans, all required before merge. See [docs/ci.md](docs/ci.md).
+- **A work queue in GitHub:** issue forms for features, bugs, chores and
+  operator tasks, each with testable acceptance criteria, plus the `ready`,
+  `needs-human` and `security` labels.
 
 ## Security
 

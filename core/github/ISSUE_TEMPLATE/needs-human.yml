@@ -1,0 +1,25 @@
+name: Needs human
+description: Something only the operator can do, such as creating a server or adding a secret.
+labels: ["needs-human"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: What the operator must do
+      description: One or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Exact steps
+      description: Commands to run or settings to change, in order, so nothing has to be looked up.
+    validations:
+      required: true
+  - type: textarea
+    id: unblocks
+    attributes:
+      label: What it unblocks
+      description: The issue or pull request that is waiting on this.
+    validations:
+      required: true

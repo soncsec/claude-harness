@@ -1,0 +1,18 @@
+name: Chore
+description: "Upkeep: tooling, docs, dependencies, refactoring."
+labels: ["chore"]
+body:
+  - type: textarea
+    id: what-and-why
+    attributes:
+      label: What and why
+      description: What should change, and what it makes better.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: How to tell it is done, for example "make check passes with the new linter".
+    validations:
+      required: true

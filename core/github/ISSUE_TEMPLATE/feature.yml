@@ -1,0 +1,40 @@
+name: Feature
+description: Something new the project should do.
+labels: ["feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be possible after this, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        Testable statements, one per line. Each one becomes a failing test
+        before the code is written.
+      placeholder: |
+        - Given a signed-in user, when they open /notes, then they see only their own notes.
+    validations:
+      required: true
+  - type: checkboxes
+    id: security-impact
+    attributes:
+      label: Security impact
+      description: Tick everything this touches. If you tick any, add the `security` label.
+      options:
+        - label: Sign-in, sessions or permissions
+        - label: Personal or sensitive data
+        - label: Input from users, files or other systems
+        - label: Secrets, keys or credentials
+        - label: A new dependency or external service
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue leaves out, so the pull request stays small.
+    validations:
+      required: true
