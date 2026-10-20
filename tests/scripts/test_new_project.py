@@ -8,10 +8,12 @@ push, rules.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
 
+import fake_github
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
@@ -25,7 +27,7 @@ printf '%s\\n' "$*" >> {log}
 case "$*" in
   *permissions.admin*) echo true ;;
   *defaultBranchRef*)  echo main ;;
-  "api user --jq"*)    echo "owner ${{FAKE_GH_PLAN:-pro}}" ;;
+  "api user --jq"*)    echo "owner ${{FAKE_GH_PLAN-pro}}" ;;
   "api repos/owner/repo/rulesets")
     case "${{FAKE_GH_MODE:-}}" in
       free)
@@ -189,6 +191,50 @@ def test_create_warns_up_front_on_free_plan(setup, tmp_path):
     assert "on GitHub Free, private repos cannot have GitHub rules" in out
     assert out.index("on GitHub Free") < out.index("[1] Create")
     assert "repo create owner/repo --private" in setup["log"].read_text()
+
+
+def test_create_gives_a_softer_note_when_the_plan_is_unknown(setup, tmp_path):
+    setup["env"]["FAKE_GH_PLAN"] = ""  # gh login without the scope to read the plan
+    result = run(setup, "--yes", "--create", "owner/repo", str(tmp_path / "created"))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "if owner is on GitHub Free" in result.stdout
+
+
+def test_identity_step_waits_for_the_repo_then_wires_the_project(setup, tmp_path):
+    # The step that broke in the first real run: it never ran in tests before,
+    # because the other tests have no agent app configured.
+    github = fake_github.start(installed=("owner/repo",))
+    github.reach_after["owner/repo"] = 1  # not ticked yet at the first check
+    try:
+        config = tmp_path / "agent-config"
+        config.mkdir()
+        key = config / "agent-app.pem"
+        subprocess.run(
+            ["openssl", "genrsa", "-out", str(key), "2048"], check=True, capture_output=True
+        )
+        key.chmod(0o600)
+        (config / "agent-app.conf").write_text("CLIENT_ID=Iv23liTEST123\nAPP_SLUG=test-agent\n")
+        setup["env"].update(
+            {
+                "CLAUDE_HARNESS_CONFIG_DIR": str(config),
+                "CLAUDE_HARNESS_TOKEN_DIR": str(tmp_path / "tokens"),
+                "GITHUB_API_URL": f"http://127.0.0.1:{github.server_port}",
+                "DISPLAY": "",
+                "WAYLAND_DISPLAY": "",
+            }
+        )
+        result = run(setup, "--yes", str(setup["project"]))
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "https://github.com/settings/installations/12345" in result.stdout
+        assert "Got it" in result.stdout
+        assert "Done in" in result.stdout
+
+        settings = setup["project"] / ".claude" / "settings.local.json"
+        data = json.loads(settings.read_text())
+        assert data["env"]["GH_CONFIG_DIR"] == str(tmp_path / "tokens" / "owner" / "repo")
+        assert (tmp_path / "tokens" / "owner" / "repo" / "hosts.yml").exists()
+    finally:
+        github.shutdown()
 
 
 def test_dry_run_changes_nothing(setup):

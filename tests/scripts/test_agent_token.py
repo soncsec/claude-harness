@@ -13,78 +13,22 @@ import os
 import shutil
 import stat
 import subprocess
-import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import fake_github
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 TOKEN_SCRIPT = REPO / "scripts" / "agent-token.sh"
 SESSION_SCRIPT = REPO / "scripts" / "agent-session.sh"
 GOOD_CONFIG = "CLIENT_ID=Iv23liTEST123\nAPP_SLUG=test-agent\n"
-INSTALLED = {"owner/repo", "owner/other"}  # repos the fake app is installed on
 REAL_CURL = shutil.which("curl")
-
-
-class FakeGitHub(BaseHTTPRequestHandler):
-    """Answers the calls the scripts make, like api.github.com would."""
-
-    def _reply(self, code: int, payload: dict | None = None) -> None:
-        body = json.dumps(payload).encode() if payload is not None else b""
-        self.send_response(code)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _record(self) -> tuple[str, bytes]:
-        auth = self.headers.get("Authorization", "")
-        body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        self.server.calls.append((self.command, self.path, auth, body))
-        return auth, body
-
-    def _has_jwt(self, auth: str) -> bool:
-        return auth.startswith("Bearer ") and auth.count(".") == 2
-
-    def do_POST(self) -> None:
-        auth, _ = self._record()
-        if self.path != "/app/installations/12345/access_tokens":
-            return self._reply(404, {"message": "Not Found"})
-        if not self._has_jwt(auth):
-            return self._reply(401, {"message": "A JSON web token could not be decoded"})
-        self.server.minted += 1
-        self._reply(
-            201, {"token": f"ghs_FAKE{self.server.minted}", "expires_at": "2030-01-01T00:00:00Z"}
-        )
-
-    def do_GET(self) -> None:
-        auth, _ = self._record()
-        if self.path == "/users/test-agent%5Bbot%5D":
-            return self._reply(200, {"id": 4242})
-        if self.path.startswith("/repos/") and self.path.endswith("/installation"):
-            repo = self.path.removeprefix("/repos/").removesuffix("/installation")
-            if not self._has_jwt(auth):
-                return self._reply(401, {"message": "Bad credentials"})
-            if repo in INSTALLED:
-                return self._reply(200, {"id": 12345})
-        self._reply(404, {"message": "Not Found"})
-
-    def do_DELETE(self) -> None:
-        self._record()
-        self._reply(204 if self.path == "/installation/token" else 404)
-
-    def log_message(self, *args) -> None:
-        pass
 
 
 @pytest.fixture
 def github():
-    server = ThreadingHTTPServer(("127.0.0.1", 0), FakeGitHub)
-    server.calls = []
-    server.minted = 0
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    server = fake_github.start(installed=("owner/repo", "owner/other"))
     yield server
     server.shutdown()
 
