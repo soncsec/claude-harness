@@ -25,6 +25,7 @@ What gets installed:
   .claude/settings.json      permissions, sandbox and hook wiring
   .claude/hooks/*.py         the guardrail hooks
   .claude/harness-version    which harness version was installed
+  .github/workflows/*.yml    CI: checks and security scans on every pull request
   CLAUDE.md                  starter agent instructions (only if missing)
   .gitignore                 a marked block of secret and local-state rules
 
@@ -113,10 +114,13 @@ plan_file() {
 }
 
 build_plan() {
-  local hook
+  local hook workflow
   plan_file "$CORE/claude/settings.json" ".claude/settings.json"
   for hook in "$CORE"/claude/hooks/*.py; do
     plan_file "$hook" ".claude/hooks/$(basename "$hook")"
+  done
+  for workflow in "$CORE"/github/workflows/*.yml; do
+    plan_file "$workflow" ".github/workflows/$(basename "$workflow")"
   done
 }
 

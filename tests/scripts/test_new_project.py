@@ -109,6 +109,8 @@ def test_new_empty_repo_end_to_end(setup):
         "CLAUDE.md",
         ".gitignore",
         ".github/CODEOWNERS",
+        ".github/workflows/ci.yml",
+        ".github/workflows/security.yml",
     ):
         assert expected in files
     codeowners = git("-C", str(setup["bare"]), "show", "main:.github/CODEOWNERS")

@@ -1,0 +1,39 @@
+# Installed by claude-harness (source: core/github/workflows/ci.yml).
+# Runs the project's own checks, `make check`, on every pull request.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# No permissions by default; each job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      UV_FROZEN: "1"  # install exactly what uv.lock says; never re-resolve in CI
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: make check
+        run: |
+          if [ -f Makefile ] && make -n check >/dev/null 2>&1; then
+            make check
+          else
+            echo "::warning::No 'make check' target yet. Add one so CI can test this project."
+          fi
