@@ -65,6 +65,12 @@ run() {
 
 SETUP_FILES=(.claude CLAUDE.md .gitignore .github/CODEOWNERS)
 
+# True when OWNER is your own account and it is on GitHub Free. (An
+# organization's plan is not checked here; github-setup.sh reports it.)
+on_free_plan() {
+  [[ $(gh api user --jq '.login + " " + (.plan.name // "")' 2>/dev/null) == "$1 free" ]]
+}
+
 # --- Agent identity helpers --------------------------------------------------------
 
 # The URL where the owner picks which repos the app may use.
@@ -135,6 +141,11 @@ main() {
     valid_repo "$CREATE" || die "--create needs OWNER/NAME"
     DIR=${DIR:-./${CREATE#*/}}
     [[ ! -e $DIR ]] || die "$DIR already exists"
+    if [[ $VISIBILITY == --private ]] && on_free_plan "${CREATE%%/*}"; then
+      log "Note: on GitHub Free, private repos cannot have GitHub rules (rulesets)."
+      log "      $CREATE will be protected by the local guardrails only."
+      log "      For GitHub-side protection too, use --public or GitHub Pro."
+    fi
     step "Create $CREATE on GitHub (${VISIBILITY#--}) and clone it into $DIR"
     run gh repo create "$CREATE" "$VISIBILITY" --description "Built with claude-harness"
     run git clone -q "https://github.com/$CREATE.git" "$DIR"
@@ -193,12 +204,19 @@ main() {
     fi
   fi
 
-  step "GitHub rules: only reviewed pull requests reach main"
+  step "GitHub rules: only pull requests reach main"
+  local protection="GitHub rules + local guardrails" rules_status=0
   if (( DRY_RUN )); then
     printf '  + %s\n' "(cd $DIR && $HARNESS_DIR/scripts/github-setup.sh $repo)"
   else
-    (cd "$DIR" && "$HARNESS_DIR/scripts/github-setup.sh" "$repo")
+    (cd "$DIR" && "$HARNESS_DIR/scripts/github-setup.sh" "$repo") || rules_status=$?
   fi
+  case $rules_status in
+    0) ;;
+    3) protection="local guardrails only (GitHub Free: no rulesets on private repos)" ;;
+    *) protection="local guardrails only (GitHub rules FAILED: re-run github-setup.sh $repo)"
+       printf 'warning: applying the GitHub rules failed (see above); continuing.\n' >&2 ;;
+  esac
 
   if (( ! NO_AGENT )); then
     step "The agent's own GitHub identity"
@@ -213,6 +231,7 @@ main() {
 
   local elapsed=$((SECONDS - started))
   printf '\n%sDone in %dm %02ds.%s\n' "$BOLD" $((elapsed / 60)) $((elapsed % 60)) "$RESET"
+  printf 'Protection: %s\n' "$protection"
   printf 'Next:\n'
   (( empty )) || printf '  - Merge the setup pull request (tick the bypass box: you cannot approve your own PR).\n'
   printf '  - cd %s && claude\n' "$DIR"

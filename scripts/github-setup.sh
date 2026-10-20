@@ -27,6 +27,9 @@ What it applies:
   .github/CODEOWNERS     Created in the current git repo if missing, from
                          core/github/CODEOWNERS.template: you own the guardrail
                          files. Commit it yourself; agents cannot edit it.
+
+Exit status 3 means rulesets are not available on this repo (GitHub Free only
+has them on public repos); everything else was applied.
 EOF
 }
 
@@ -59,10 +62,36 @@ run() {
 
 json_name() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$1"; }
 
+RULESETS_JSON=''
+
+# Read the repo's rulesets. Returns 2 when GitHub's plan does not allow rulesets
+# here (GitHub Free only has them on public repos); dies on any other error.
+load_rulesets() {
+  local out
+  if out=$(gh api "repos/$REPO/rulesets" 2>&1); then
+    RULESETS_JSON=$out
+    return 0
+  fi
+  if [[ $out == *"Upgrade to GitHub Pro"* || $out == *"make this repository public"* ]]; then
+    return 2
+  fi
+  die "could not read the rulesets of $REPO: $out"
+}
+
+ruleset_id() {
+  printf '%s' "$RULESETS_JSON" | python3 -c '
+import json, sys
+for ruleset in json.load(sys.stdin):
+    if ruleset.get("name") == sys.argv[1]:
+        print(ruleset["id"])
+        break
+' "$1"
+}
+
 apply_ruleset() {
   local file=$1 name id
   name=$(json_name "$file")
-  id=$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$name\") | .id" 2>/dev/null || true)
+  id=$(ruleset_id "$name")
   if [[ -n $id ]]; then
     log "Updating ruleset $name (id $id)"
     run gh api -X PUT "repos/$REPO/rulesets/$id" --input "$file" --silent
@@ -108,18 +137,42 @@ main() {
     || die "you need admin access to $REPO"
 
   (( DRY_RUN )) && log "Dry run: nothing will be changed."
-  local file
-  for file in "${RULESETS[@]}"; do
-    apply_ruleset "$file"
-  done
+  local file rules=1
+  load_rulesets || rules=0
+  if (( rules )); then
+    for file in "${RULESETS[@]}"; do
+      apply_ruleset "$file"
+    done
+  else
+    warn_no_rulesets
+  fi
   apply_settings
   write_codeowners
 
   if (( ! DRY_RUN )); then
-    log "Done. Rulesets now on $REPO:"
-    gh api "repos/$REPO/rulesets" --jq '.[] | "  - \(.name) (\(.enforcement))"'
+    if (( rules )); then
+      log "Done. Rulesets now on $REPO:"
+      gh api "repos/$REPO/rulesets" --jq '.[] | "  - \(.name) (\(.enforcement))"'
+    else
+      log "Done, without GitHub rules: $REPO is protected by the local guardrails only."
+    fi
     log "Next: commit .github/CODEOWNERS if it was created, then follow the tests in docs/setup/github-app.md."
   fi
+  (( rules )) || exit 3
+}
+
+warn_no_rulesets() {
+  cat >&2 <<EOF
+
+warning: GitHub's plan does not allow rulesets on $REPO.
+  GitHub Free has rulesets (branch protection) only on public repositories.
+  Without them, GitHub itself does not stop pushes to main, force pushes, or
+  merges without your review, and CODEOWNERS is advisory only. Agents are
+  still stopped by the local guardrails (deny rules, Bash hook, sandbox).
+  For GitHub-side protection too: make the repo public, or upgrade to
+  GitHub Pro, then run this script again.
+
+EOF
 }
 
 main
