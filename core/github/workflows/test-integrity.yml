@@ -35,6 +35,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           REPO: ${{ github.repository }}
         run: |
           # The checker comes from the target branch, so a pull request cannot
@@ -47,4 +48,5 @@ jobs:
             echo "::notice::First install: using this pull request's checker."
             cp .github/harness/test_integrity.py "$checker"
           fi
-          python3 "$checker" --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$REPO" --pr "$PR_NUMBER"
+          python3 "$checker" --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$REPO" \
+            --pr "$PR_NUMBER" --author "$PR_AUTHOR"

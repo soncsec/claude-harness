@@ -155,6 +155,7 @@ def main() -> int:
     parser.add_argument("--head", default="HEAD", help="pull request commit or ref")
     parser.add_argument("--repo", help="owner/name, to look for a maintainer's approval")
     parser.add_argument("--pr", type=int, help="pull request number")
+    parser.add_argument("--author", help="login of the pull request's author")
     args = parser.parse_args()
 
     findings = find_problems(args.base, args.head)
@@ -163,10 +164,15 @@ def main() -> int:
         return 0
 
     approver = None
-    if args.repo and args.pr:
-        head_sha = git("rev-parse", args.head).strip()
+    if args.repo:
         allowed = maintainers(args.repo, args.base)
-        approver = maintainer_approval(args.repo, args.pr, head_sha, allowed)
+        if args.author and args.author.lower() in allowed:
+            # A maintainer's own pull request: GitHub never lets authors approve
+            # their own work, and the approval exists to check agents, not them.
+            approver = f"{args.author} (the author)"
+        elif args.pr:
+            head_sha = git("rev-parse", args.head).strip()
+            approver = maintainer_approval(args.repo, args.pr, head_sha, allowed)
     for finding in findings:
         print(
             f"::notice file={finding.path}::{finding.message}" if approver else finding.annotation()

@@ -205,3 +205,29 @@ def test_reviews_endpoint_is_used_with_the_token(approvals, repo):
         "/repos/owner/repo/pulls/5/reviews?per_page=100",
         "Bearer x",
     )
+
+
+def test_a_maintainers_own_pr_passes_with_notices(approvals, repo):
+    # GitHub never lets authors approve their own PR, so a maintainer's own
+    # changes (like a guardrail update) must not wait for an approval.
+    result = check(repo, "--repo", "owner/repo", "--pr", "5", "--author", "owner")
+    assert result.returncode == 0, result.stdout
+    assert "::notice file=tests/test_other.py" in result.stdout
+    assert "owner (the author)" in result.stdout
+
+
+@pytest.mark.parametrize("author", ["test-agent[bot]", "someone-else"])
+def test_other_authors_still_need_approval(approvals, author):
+    result = approvals.run([])  # no reviews
+    assert result.returncode == 1
+    result = check(
+        approvals.repo,
+        "--repo",
+        "owner/repo",
+        "--pr",
+        "5",
+        "--author",
+        author,
+        env={"GITHUB_API_URL": f"http://127.0.0.1:{approvals.server.server_port}"},
+    )
+    assert result.returncode == 1, result.stdout
