@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# agent-token.sh - keep the agent's GitHub App token fresh, and wire projects to it.
+# agent-token.sh - keep the agent's GitHub App tokens fresh, one per project.
 #
-# A systemd user timer runs `refresh` every 20 minutes. Each run mints a new
-# 1-hour token from the app key (outside the sandbox) and writes it where gh
-# and git read it on every command, then revokes the previous token. Claude
-# sessions in a configured project pick up each renewal without restarting.
+# A systemd user timer runs `refresh` every 20 minutes. For every configured
+# project it mints a new 1-hour token limited to that one repo (outside the
+# sandbox, from a key agents cannot read), writes it where gh and git read it
+# on every command, and revokes the previous one. Claude sessions in a
+# configured project pick up each renewal without restarting.
 #
 # Run it yourself. One-time setup: docs/setup/github-app.md.
 
@@ -20,29 +21,35 @@ UNIT_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user
 
 usage() {
   cat <<'EOF'
-Usage: scripts/agent-token.sh COMMAND [--dry-run]
+Usage: scripts/agent-token.sh COMMAND [options]
 
 Commands:
-  check             Mint a token and revoke it again: proves the key and config work.
-  refresh           Mint a fresh token into ~/.cache/claude-harness/gh/ and revoke
-                    the previous one. The timer runs this every 20 minutes.
-  configure DIR     Wire the project in DIR so Claude sessions there act as the app
-                    (writes DIR/.claude/settings.local.json: personal, never committed).
-  install-timer     Refresh in the background every 20 minutes (systemd user timer).
+  configure DIR     Set up the project in DIR: find its GitHub repo, start
+                    keeping a token for it, and write DIR/.claude/settings.local.json
+                    (personal, never committed) so Claude sessions there act as the app.
+  refresh           Renew the token of every configured project (the timer runs this).
+  check             Mint and revoke a token for every configured project.
+  status            Show the timer and when each project's token expires.
+  forget REPO       Stop keeping a token for owner/name and revoke its current one.
+  install-timer     Renew every 20 minutes in the background (systemd user timer).
   uninstall-timer   Stop and remove the timer.
-  status            Show the timer and when the current token expires.
   jwt               Print a short-lived app JWT (for tests and debugging).
 
-  --dry-run         With configure or install-timer: show what would be written.
+Options:
+  --repo OWNER/NAME  With configure: use this repo instead of the git remote.
+                     With refresh: renew only this repo.
+  --dry-run          With configure or install-timer: show what would happen.
 EOF
 }
 
 DRY_RUN=0
 COMMAND=''
 TARGET=''
+ONLY_REPO=''
 while (( $# )); do
   case $1 in
     --dry-run) DRY_RUN=1 ;;
+    --repo)    shift; ONLY_REPO=${1:-} ;;
     -h|--help) usage; exit 0 ;;
     -*)        usage >&2; printf '\nerror: unknown option: %s\n' "$1" >&2; exit 2 ;;
     *)
@@ -51,30 +58,78 @@ while (( $# )); do
   esac
   shift
 done
+[[ -z $ONLY_REPO ]] || valid_repo "$ONLY_REPO" || die "--repo must look like owner/name"
 
-cmd_check() {
-  mint_token
-  bot_identity
-  revoke_token
-  log "Config and key OK: minted and revoked a token for $BOT_NAME on $REPO."
+repos_or_hint() {
+  local repos
+  repos=$(registered_repos)
+  [[ -n $repos ]] || die "no projects configured yet: run 'scripts/agent-token.sh configure <project dir>'"
+  printf '%s\n' "$repos"
+}
+
+legacy_notice() {
+  if [[ -f $LEGACY_TOKEN_DIR/hosts.yml ]]; then
+    log "Note: $LEGACY_TOKEN_DIR is from the old single-repo setup. Run 'configure' again"
+    log "for that project, then remove the REPO= line from $CONFIG_FILE and delete that folder."
+  fi
 }
 
 cmd_refresh() {
-  local previous
-  previous=$(current_token)
-  mint_token
-  write_token_files
-  [[ -n $previous && $previous != "$TOKEN" ]] && revoke_token "$previous"
-  log "New token for $BOT_NAME on $REPO, valid until $EXPIRES_AT."
+  local repo repos failed=0
+  if [[ -n $ONLY_REPO ]]; then
+    refresh_repo "$ONLY_REPO" || failed=1
+  else
+    repos=$(repos_or_hint)
+    while IFS= read -r repo; do
+      refresh_repo "$repo" || failed=1
+    done <<< "$repos"
+    legacy_notice
+  fi
+  (( failed == 0 )) || die "some tokens could not be renewed; see the errors above"
+}
+
+cmd_check() {
+  local repo repos failed=0
+  repos=$(repos_or_hint)
+  while IFS= read -r repo; do
+    if mint_token "$repo"; then
+      revoke_token
+      log "$repo: OK (minted and revoked a token for $BOT_NAME)."
+    else
+      failed=1
+    fi
+  done <<< "$repos"
+  (( failed == 0 )) || die "some projects failed the check; see the errors above"
+}
+
+cmd_status() {
+  local repo dir
+  if command -v systemctl >/dev/null; then
+    systemctl --user list-timers "$UNIT.timer" --no-pager 2>/dev/null || true
+  fi
+  log "Now: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  while IFS= read -r repo; do
+    [[ -n $repo ]] || continue
+    dir=$(token_dir_for "$repo")
+    if [[ -f $dir/expires_at ]]; then
+      log "$repo: token expires $(cat "$dir/expires_at")"
+    else
+      log "$repo: no token yet"
+    fi
+  done <<< "$(registered_repos)"
+  legacy_notice
 }
 
 cmd_configure() {
-  local project settings
-  [[ -n $TARGET && -d $TARGET ]] || die "usage: agent-token.sh configure PROJECT_DIR"
+  local project repo settings
+  [[ -n $TARGET && -d $TARGET ]] || die "usage: agent-token.sh configure PROJECT_DIR [--repo owner/name]"
   project=$(cd "$TARGET" && pwd)
+  repo=${ONLY_REPO:-$(repo_from_remote "$project")}
+  [[ -n $repo ]] \
+    || die "$project has no GitHub 'origin' remote; pass --repo owner/name"
   settings="$project/.claude/settings.local.json"
   bot_identity
-  agent_env
+  agent_env "$repo"
 
   local pairs=() key
   for key in "${!AGENT_ENV[@]}"; do
@@ -82,10 +137,13 @@ cmd_configure() {
   done
 
   if (( DRY_RUN )); then
-    log "Would add to $settings under \"env\":"
+    log "Would keep a token for $repo and add to $settings under \"env\":"
     printf '  %s\n' "${pairs[@]}" | sort
     return
   fi
+
+  register_repo "$repo"
+  refresh_repo "$repo" || die "could not get a token for $repo; settings were not changed"
 
   mkdir -p "$project/.claude"
   # Merge into any existing local settings, keeping everything else as it is.
@@ -105,19 +163,29 @@ with open(path, "w") as fh:
     fh.write("\n")
 PY
   chmod 600 "$settings"
-  log "Wrote $settings: Claude sessions in $project now act as $BOT_NAME."
+  log "Wrote $settings: Claude sessions in $project now act as $BOT_NAME on $repo."
   if git -C "$project" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
      && ! git -C "$project" check-ignore -q "$settings"; then
     printf 'warning: %s is not git-ignored; add .claude/settings.local.json to .gitignore\n' \
       "$settings" >&2
   fi
-  [[ -f $TOKEN_DIR/hosts.yml ]] || log "No token yet: run 'agent-token.sh refresh' or install the timer."
+}
+
+cmd_forget() {
+  local repo=$TARGET dir
+  valid_repo "$repo" || die "usage: agent-token.sh forget owner/name"
+  dir=$(token_dir_for "$repo")
+  revoke_token "$(current_token "$dir")"
+  rm -rf "$dir"
+  unregister_repo "$repo"
+  log "$repo: token revoked and no longer renewed."
+  [[ $repo != "$LEGACY_REPO" ]] || log "It is also named in REPO= in $CONFIG_FILE: remove that line too."
 }
 
 service_unit() {
   cat <<EOF
 [Unit]
-Description=Refresh the claude-harness agent's GitHub App token
+Description=Refresh the claude-harness agent's GitHub App tokens
 
 [Service]
 Type=oneshot
@@ -128,7 +196,7 @@ EOF
 timer_unit() {
   cat <<EOF
 [Unit]
-Description=Refresh the claude-harness agent's GitHub App token every 20 minutes
+Description=Refresh the claude-harness agent's GitHub App tokens every 20 minutes
 
 [Timer]
 # Shortly after you log in, then every 20 minutes (tokens last 60).
@@ -158,7 +226,6 @@ cmd_install_timer() {
   timer_unit > "$UNIT_DIR/$UNIT.timer"
   systemctl --user daemon-reload
   systemctl --user enable --now "$UNIT.timer"
-  cmd_refresh
   log "Timer installed. If you move this repo, run install-timer again (it stores the path)."
 }
 
@@ -166,31 +233,21 @@ cmd_uninstall_timer() {
   systemctl --user disable --now "$UNIT.timer" 2>/dev/null || true
   rm -f "$UNIT_DIR/$UNIT.service" "$UNIT_DIR/$UNIT.timer"
   systemctl --user daemon-reload 2>/dev/null || true
-  log "Timer removed. The last token expires within the hour."
-}
-
-cmd_status() {
-  if command -v systemctl >/dev/null; then
-    systemctl --user list-timers "$UNIT.timer" --no-pager 2>/dev/null || true
-  fi
-  if [[ -f $TOKEN_DIR/expires_at ]]; then
-    log "Current token expires: $(cat "$TOKEN_DIR/expires_at") (now: $(date -u +%Y-%m-%dT%H:%M:%SZ))"
-  else
-    log "No token on disk yet."
-  fi
+  log "Timer removed. Current tokens expire within the hour."
 }
 
 main() {
   case $COMMAND in
-    check|refresh|configure|install-timer|jwt) require_tools; load_config ;;
+    check|refresh|configure|forget|status|jwt) require_tools; load_config ;;
   esac
   case $COMMAND in
-    check)           cmd_check ;;
-    refresh)         cmd_refresh ;;
     configure)       cmd_configure ;;
+    refresh)         cmd_refresh ;;
+    check)           cmd_check ;;
+    status)          cmd_status ;;
+    forget)          cmd_forget ;;
     install-timer)   cmd_install_timer ;;
     uninstall-timer) cmd_uninstall_timer ;;
-    status)          cmd_status ;;
     jwt)             make_jwt; echo ;;
     '')              usage >&2; exit 2 ;;
     *)               usage >&2; printf '\nerror: unknown command: %s\n' "$COMMAND" >&2; exit 2 ;;

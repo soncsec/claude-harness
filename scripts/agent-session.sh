@@ -43,15 +43,20 @@ done
 main() {
   require_tools
   load_config
+
+  # The project is the current directory; its token is limited to its repo.
+  local repo
+  repo=$(repo_from_remote .)
+  [[ -n $repo ]] || die "this directory has no GitHub 'origin' remote; run it from a project"
   command -v claude >/dev/null || die "claude (Claude Code) is not on PATH"
 
-  "$HARNESS_DIR/scripts/agent-token.sh" refresh
+  "$HARNESS_DIR/scripts/agent-token.sh" refresh --repo "$repo"
   bot_identity
-  agent_env
+  agent_env "$repo"
 
   # Keep the token fresh in the background while Claude runs.
   ( while sleep "$REFRESH_SECONDS"; do
-      "$HARNESS_DIR/scripts/agent-token.sh" refresh >/dev/null 2>&1 || true
+      "$HARNESS_DIR/scripts/agent-token.sh" refresh --repo "$repo" >/dev/null 2>&1 || true
     done ) &
   local refresher=$!
   trap 'kill "$refresher" 2>/dev/null || true' EXIT
@@ -62,7 +67,7 @@ main() {
   done
   unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN  # only the app's token, never yours
 
-  log "Starting Claude as $BOT_NAME on $REPO; the token renews every 20 minutes."
+  log "Starting Claude as $BOT_NAME on $repo; the token renews every 20 minutes."
   local status=0
   claude "${CLAUDE_ARGS[@]}" || status=$?
   exit "$status"
