@@ -38,6 +38,15 @@ def test_skill_runs_in_the_main_session():
     assert "AskUserQuestion" in BODY
 
 
+def test_merge_waits_are_watched_not_left_silent():
+    # Each pull request kickoff opens is watched, so the operator is notified and
+    # its merge moves the kickoff on without the operator typing anything.
+    assert BODY.count(".claude/skills/watch-pr/SKILL.md") >= 3  # the rule + both PRs
+    assert (ROOT / "core" / "claude" / "skills" / "watch-pr" / "SKILL.md").is_file()
+    assert "Tell the operator it is ready to merge" not in BODY
+    assert "Ask whether the kickoff pull request is merged" not in BODY
+
+
 def test_every_template_the_skill_names_exists():
     named = set(re.findall(r"templates/[\w./-]+\.\w+|templates/python/Makefile", BODY))
     assert named

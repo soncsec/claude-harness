@@ -41,6 +41,45 @@ def test_statement_is_allowed(run_hook, message):
     assert not result.blocked_stop, f"should be allowed: {message!r}"
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Kickoff PR #3 is open: https://github.com/o/r/pull/3\n\nIt's ready to merge.",
+        "PR #4 is ready for your review.\n\nWhat's in it:\n- README\n- ROADMAP",
+        "Docs are pushed. Once it's merged, I'll build the skeleton.",
+        "Over to you: merge #5 when CI is green.",
+        "I'll start phase 4 when you merge the PR.",
+        "Tell me when the PR is merged.",
+    ],
+)
+def test_leaving_the_operator_a_step_is_sent_back(run_hook, message):
+    result = run_hook("require_ask_tool.py", stop(message))
+    assert result.blocked_stop, f"should be sent back: {message!r}"
+    reason = result.output["reason"]
+    assert "watch_pr.py" in reason or "AskUserQuestion" in reason
+
+
+def test_wait_reason_says_how_to_watch(run_hook):
+    result = run_hook("require_ask_tool.py", stop("PR #3 is ready to merge."))
+    reason = result.output["reason"]
+    assert "watch_pr.py" in reason and "PushNotification" in reason and "--until merged" in reason
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "PR #3 is ready to merge. I'm watching it and will carry on once it's merged.",
+        "Both PRs are merged and all checks pass.",
+        "After you merged #26, I pulled main; all tests pass.",
+        "The label text is `ready to merge`.",
+        "> Once it's merged, run the update.\n\nDone; nothing else is needed.",
+    ],
+)
+def test_finished_or_watched_work_is_allowed(run_hook, message):
+    result = run_hook("require_ask_tool.py", stop(message))
+    assert not result.blocked_stop, f"should be allowed: {message!r}"
+
+
 def test_content_block_list_is_understood(run_hook):
     message = [{"type": "text", "text": "Finished. Should I deploy to staging?"}]
     result = run_hook("require_ask_tool.py", stop(message))

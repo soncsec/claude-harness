@@ -138,6 +138,8 @@ ALLOWED = [
     "cat .claude/settings.json",
     "git diff .claude/",
     "python3 -m json.tool .claude/settings.json",
+    "python3 .claude/tools/watch_pr.py 12",
+    "python3 .claude/tools/watch_pr.py 12 --until merged",
     "grep -r TODO src/",
     "shellcheck scripts/*.sh | head -n 20",
     "echo text | shellcheck -",

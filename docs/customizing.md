@@ -59,7 +59,9 @@ Then add it to CODEOWNERS (once CI is set up) so changes need your review.
 
 Remove its entry from the `hooks` section of `.claude/settings.json`. Keep the
 script so you can turn it back on. The question hook (`require_ask_tool.py`) is
-the one most worth keeping: without it, plain-text questions get missed.
+the one most worth keeping: without it, plain-text questions get missed, and a
+session that leaves you a step ("the PR is ready to merge") can sit idle with
+nothing watching for it.
 
 ### Choosing which PRs need your review
 

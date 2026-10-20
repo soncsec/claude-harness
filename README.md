@@ -28,6 +28,9 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   commands, keep agents away from secrets and stop them editing their own rules.
 - **Questions you will not miss:** agents must ask with the question prompt, not
   in plain text.
+- **Pull requests that move on by themselves:** after opening a pull request,
+  the agent watches it: it fixes failed checks, notifies you when it is ready
+  to merge, and carries on once you merge it.
 - **Reminders:** each session starts with what is waiting on you in GitHub.
 - **Its own GitHub identity:** agents push branches and open pull requests as a
   GitHub App bot with short-lived, one-repo tokens; you merge.

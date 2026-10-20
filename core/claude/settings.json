@@ -67,6 +67,7 @@
       "Bash(git branch *)",
       "Bash(gh pr view *)",
       "Bash(gh pr checks *)",
+      "Bash(python3 .claude/tools/watch_pr.py *)",
       "Bash(gh pr list *)",
       "Bash(gh issue view *)",
       "Bash(gh issue list *)"

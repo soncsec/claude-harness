@@ -101,6 +101,13 @@ def test_kickoff_skill_is_installed(project):
     assert (skill / "SKILL.md").read_text() == (source / "SKILL.md").read_text()
 
 
+def test_pr_watcher_is_installed(project):
+    install(project, "--yes")
+    installed = project / ".claude" / "tools" / "watch_pr.py"
+    assert installed.read_text() == (REPO / "core" / "claude" / "tools" / "watch_pr.py").read_text()
+    assert (project / ".claude" / "skills" / "watch-pr" / "SKILL.md").is_file()
+
+
 def test_issue_forms_are_installed(project):
     install(project, "--yes")
     forms = project / ".github" / "ISSUE_TEMPLATE"
