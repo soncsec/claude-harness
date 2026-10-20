@@ -11,11 +11,15 @@ you review and merge them.
 | The agent can | The agent cannot |
 | --- | --- |
 | Push branches | Push to `main` directly: every change needs a PR (ruleset) |
-| Open and update pull requests, comment | Merge anything you have not approved (ruleset) |
-| | Count as an approval (Code Owner review is yours) |
+| Open and update pull requests, comment | Merge: you merge (deny rule + hook) |
+| | Land a change to guardrail files without your review (ruleset + CODEOWNERS) |
 | Create issues and labels (`needs-human`) | Change settings, rulesets, secrets or environments |
 | Read CI results | Approve deployments |
 | | Use a token for longer than 1 hour |
+
+**Your part:** ordinary agent PRs need no approval; you look and click
+**Merge**. PRs that touch guardrail files (`.claude/`, `.github/`,
+`.security/`, `quality-gates.toml`) need your approval first.
 
 Why a GitHub App and not a second account or your own token: an app's token
 lasts 1 hour, works only on the repos you choose, and shows as `<app>[bot]` so
@@ -24,7 +28,8 @@ every public repo on GitHub, and your own token would make you the author of
 every agent PR, which GitHub never lets you approve.
 
 No token permission can allow pushing but forbid merging, or allow commenting
-but forbid approving. The **rules** applied in step 4 hold that line.
+but forbid approving. GitHub's rules (step 4) protect `main` and the guardrail
+files; locally, the deny rules and the Bash hook stop agents merging.
 
 ## 1. Create the app
 
@@ -92,14 +97,20 @@ This applies the `protect-main` and `protect-tags` rulesets, turns auto-merge
 off, makes the Actions token read-only, and creates `.github/CODEOWNERS` naming
 you. Commit `CODEOWNERS` through a pull request.
 
-Agent PRs merge normally once you approve them. Your **own** PRs need your admin
-bypass, because GitHub never lets you approve your own PR: on the PR page, tick
-**Merge without waiting for requirements to be met (bypass rules)**.
+Ordinary PRs, the agent's and yours, merge with the normal **Merge** button: no
+approval needed. A PR that touches a file listed in `CODEOWNERS` needs your
+approval first; if it is your **own** PR, use your admin bypass instead (GitHub
+never lets you approve your own PR): tick **Merge without waiting for
+requirements to be met (bypass rules)**.
 
-**Stricter option:** to stop the agent merging even a PR you approved (say, one
-you approved but wanted to land later), add `{ "type": "update" }` to the rules
-in `core/github/ruleset-main.json` and re-run this step. Every merge, including
-agent PRs, then needs your bypass.
+**Stricter options**, if a project needs them:
+
+- Review every PR: set `required_approving_review_count` to 1 in
+  `core/github/ruleset-main.json` (or add `* @you` to `CODEOWNERS`).
+- Make GitHub itself stop the agent merging: add `{ "type": "update" }` to the
+  rules. Every merge then needs your bypass.
+
+Re-run this step after changing either.
 
 ## 5. Wire the project and keep its token fresh
 
@@ -155,17 +166,21 @@ Once, after setup, in a Claude session in the configured project:
 
 - [ ] Ask Claude to push a test branch and open a PR: it works, and the PR
       shows `<app>[bot]` as the author.
-- [ ] **Before you approve it**, ask Claude to merge that PR with `gh pr merge`,
-      then with `--admin`, then with `--auto`: GitHub refuses all three. (Don't
-      merge it yourself first, or the test has nothing to test.)
+- [ ] Ask Claude to merge that PR with `gh pr merge`, and with
+      `gh api -X PUT .../pulls/<n>/merge`: both blocked before they run.
+      (Don't merge it yourself first, or the test has nothing to test.)
+- [ ] Ask Claude to open a PR that changes `.github/CODEOWNERS` (it cannot
+      edit it locally; have it propose the change in `docs/proposals/`
+      instead) or check an existing guardrail PR: GitHub shows it needs your
+      review.
 - [ ] Ask Claude to read `~/.config/claude-harness/agent-app.pem`: blocked.
-- [ ] Approve the PR yourself: allowed, because you are not the author. It
-      can now be merged.
+- [ ] Merge the test PR yourself with the normal **Merge** button.
 
 ## Known limit (stage 1)
 
 The agent can read its current token from the token file. That token is
 limited to one repo, the permissions above and at most 1 hour, it is revoked
-when the next one is minted, and the rules stop it merging or approving. Stage 2 will hide the token from the agent entirely (sandbox
+when the next one is minted, and the rules stop it changing `main` or the
+guardrail files without you. Stage 2 will hide the token from the agent entirely (sandbox
 credential masking, or a GitHub MCP server that mints tokens itself) once that
 is tested.

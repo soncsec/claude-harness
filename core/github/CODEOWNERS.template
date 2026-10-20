@@ -1,0 +1,8 @@
+# Changes to these paths need the repository owner's review before they merge.
+# Everything else merges without an approval: the owner just clicks Merge.
+# Add your own sensitive paths (deploy config, auth code, ...) below.
+/.claude/                  @{{OWNER}}
+/.github/                  @{{OWNER}}
+/.pre-commit-config.yaml   @{{OWNER}}
+/.security/                @{{OWNER}}
+/quality-gates.toml        @{{OWNER}}

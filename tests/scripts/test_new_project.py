@@ -95,7 +95,8 @@ def test_new_empty_repo_end_to_end(setup):
     ):
         assert expected in files
     codeowners = git("-C", str(setup["bare"]), "show", "main:.github/CODEOWNERS")
-    assert "* @owner" in codeowners
+    assert "/.claude/" in codeowners and "@owner" in codeowners
+    assert "{{OWNER}}" not in codeowners
 
     # The rules were applied after the first push.
     calls = setup["log"].read_text()

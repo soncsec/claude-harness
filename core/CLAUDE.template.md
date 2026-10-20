@@ -11,7 +11,9 @@
 2. Propose a plan first; the operator approves it before you write code.
 3. Turn the issue's acceptance criteria into failing tests, then make them pass.
 4. Run `make lint test scan` and fix what they report before saying you are done.
-5. Open a pull request. Never push to `main`, never merge, never approve.
+5. Open a pull request and tell the operator it is ready. Never push to `main`,
+   never merge, never approve: the operator merges. PRs that touch guardrail
+   files also wait for the operator's review.
 
 ## Commands
 

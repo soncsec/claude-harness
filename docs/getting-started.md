@@ -43,9 +43,9 @@ Add `--dry-run` first to see the plan without changing anything.
 | Step | What happens |
 | --- | --- |
 | Guardrails | Settings, sandbox, hooks, `CLAUDE.md`, `.gitignore`. It asks for a project name and a one-line description. |
-| CODEOWNERS | Every change needs your review. |
+| CODEOWNERS | Changes to guardrail files need your review; everything else just needs you to click Merge. |
 | First commit | A new, empty repo: pushed straight to `main`, before any rules exist. A repo with history: a pull request for you to merge. |
-| GitHub rules | Only reviewed pull requests reach `main`; no force pushes; tags locked. |
+| GitHub rules | Only pull requests reach `main`; no force pushes; tags locked. |
 | Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
 
 It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`,

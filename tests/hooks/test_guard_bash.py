@@ -96,6 +96,13 @@ BLOCKED = [
     # the GitHub App key folder
     "cat ~/.config/claude-harness/agent-app.pem",
     "ls ~/.config/claude-harness",
+    # the operator merges pull requests, by every route
+    "gh pr merge 5 --merge",
+    "gh pr merge 5 --squash --admin",
+    "gh pr merge",
+    "gh api -X PUT repos/o/r/pulls/5/merge",
+    "gh api repos/o/r/pulls/5/merge -f merge_method=squash",
+    "curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge",
     # running the one-command project setup is an operator step too
     "scripts/new-project.sh --create owner/app ~/dev/app",
     "make new-project",
@@ -148,6 +155,10 @@ ALLOWED = [
     "git commit -q -F - <<'EOF'\nAgents cannot touch .claude/ inside the sandbox.\n"
     "Also mentions sudo, .env and git push --force.\nEOF",
     "git commit -F - <<EOF\nPlain heredoc that mentions .claude/ and rm\nEOF",
+    # checking whether a PR is mergeable, or merging locally, is fine
+    "gh pr view 5 --json mergeStateStatus,reviewDecision",
+    "gh api repos/o/r/pulls/5/merge",
+    "git merge --ff-only origin/main",
     # reading about or listing pending deployments is not approving them
     "grep -rn pending_deployments docs/",
     "gh api repos/o/r/actions/runs/1/pending_deployments",
