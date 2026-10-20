@@ -1,0 +1,52 @@
+# Installed by claude-harness (source: core/github/workflows/test-integrity.yml).
+# Fails pull requests that weaken tests (deleted tests, removed assertions, new
+# skips or suppressions) until a maintainer approves them. Approving re-runs it.
+name: test-integrity
+
+on:
+  pull_request:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+# No permissions by default; the job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test-integrity:
+    name: test-integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read  # to see whether a maintainer approved
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check with the target branch's rules
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The checker comes from the target branch, so a pull request cannot
+          # change the rules that judge it. Only the very first install uses
+          # the pull request's own copy.
+          checker="$RUNNER_TEMP/test_integrity.py"
+          if git cat-file -e "$BASE_SHA:.github/harness/test_integrity.py" 2>/dev/null; then
+            git show "$BASE_SHA:.github/harness/test_integrity.py" > "$checker"
+          else
+            echo "::notice::First install: using this pull request's checker."
+            cp .github/harness/test_integrity.py "$checker"
+          fi
+          python3 "$checker" --base "$BASE_SHA" --head "$HEAD_SHA" --repo "$REPO" \
+            --pr "$PR_NUMBER" --author "$PR_AUTHOR"

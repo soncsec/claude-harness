@@ -37,7 +37,9 @@
           { "context": "secrets" },
           { "context": "sast" },
           { "context": "dependencies" },
-          { "context": "workflows" }
+          { "context": "workflows" },
+          { "context": "coverage" },
+          { "context": "test-integrity" }
         ]
       }
     }

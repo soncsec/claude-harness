@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,8 @@ def test_fresh_install(project):
     assert (project / ".claude" / "hooks" / "guard_bash.py").is_file()
     assert (project / ".github" / "workflows" / "ci.yml").is_file()
     assert (project / ".github" / "workflows" / "security.yml").is_file()
+    assert (project / ".github" / "harness" / "test_integrity.py").is_file()
+    assert (project / "quality-gates.toml").is_file()
     assert (project / ".claude" / "harness-version").read_text().startswith("claude-harness")
     claude_md = (project / "CLAUDE.md").read_text()
     assert claude_md.startswith("# my-app")
@@ -106,3 +109,28 @@ def test_without_terminal_or_yes_nothing_is_installed(project):
 def test_missing_target_fails(tmp_path):
     result = install(tmp_path / "nope", "--yes")
     assert result.returncode != 0
+
+
+def test_quality_gates_list_detected_python_projects(project):
+    service = project / "services" / "api"
+    (service / "src").mkdir(parents=True)
+    (service / "uv.lock").write_text("version = 1\n")
+    (project / "docs").mkdir()
+    (project / "docs" / "uv.lock").write_text("version = 1\n")  # no src/: not measured
+    install(project, "--yes")
+    gates = tomllib.loads((project / "quality-gates.toml").read_text())
+    assert gates["coverage"]["projects"] == [
+        {"path": "services/api", "source": ["src"], "minimum": 80}
+    ]
+
+
+def test_quality_gates_are_valid_with_no_projects(project):
+    install(project, "--yes")
+    gates = tomllib.loads((project / "quality-gates.toml").read_text())
+    assert gates["coverage"]["projects"] == []
+
+
+def test_existing_quality_gates_are_kept(project):
+    (project / "quality-gates.toml").write_text("# mine\n")
+    install(project, "--yes")
+    assert (project / "quality-gates.toml").read_text() == "# mine\n"

@@ -1,0 +1,50 @@
+# Installed by claude-harness (source: core/github/workflows/quality.yml).
+# Fails when test coverage drops below the minimum in quality-gates.toml.
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# No permissions by default; the job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      UV_FROZEN: "1"  # install exactly what uv.lock says; never re-resolve in CI
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: Coverage against the target branch's gates
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          # The gate and its thresholds come from the target branch, so a pull
+          # request cannot lower its own bar. Only the very first install uses
+          # the pull request's own copies.
+          from_base() {
+            if git cat-file -e "$BASE_SHA:$1" 2>/dev/null; then
+              git show "$BASE_SHA:$1" > "$2"
+            elif [ -f "$1" ]; then
+              cp "$1" "$2"
+            fi
+          }
+          from_base .github/harness/coverage_gate.py "$RUNNER_TEMP/coverage_gate.py"
+          from_base quality-gates.toml "$RUNNER_TEMP/quality-gates.toml"
+          python3 "$RUNNER_TEMP/coverage_gate.py" --gates "$RUNNER_TEMP/quality-gates.toml" --root .

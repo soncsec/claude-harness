@@ -21,6 +21,7 @@ from typing import NoReturn
 PROTECTED_PATHS = (
     ".claude/",
     ".github/workflows/",
+    ".github/harness/",
     ".github/CODEOWNERS",
     ".pre-commit-config.yaml",
     ".security/",

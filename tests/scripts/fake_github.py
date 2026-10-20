@@ -46,6 +46,8 @@ class FakeGitHub(BaseHTTPRequestHandler):
         auth, _ = self._record()
         if self.path == "/users/test-agent%5Bbot%5D":
             return self._reply(200, {"id": 4242})
+        if self.path in self.server.reviews:
+            return self._reply(200, self.server.reviews[self.path])
         if self.path == "/app/installations":
             if not self._has_jwt(auth):
                 return self._reply(401, {"message": "Bad credentials"})
@@ -78,5 +80,6 @@ def start(installed=("owner/repo", "owner/other")) -> ThreadingHTTPServer:
     server.minted = 0
     server.installed = set(installed)
     server.reach_after = {}
+    server.reviews = {}  # path -> list of pull request reviews
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
