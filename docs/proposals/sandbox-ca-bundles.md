@@ -1,7 +1,7 @@
 # Proposal: let sandboxed commands read public CA certificate bundles
 
-**Status:** accepted by the operator on 2026-10-20 and included in the phase 2b
-guardrail batch. `tests/test_settings_policy.py` keeps the exception this narrow.
+**Status:** accepted by the operator on 2026-10-19, in the guardrail batch after
+phase 2b. `tests/test_settings_policy.py` keeps the exception this narrow.
 
 ## The problem
 
