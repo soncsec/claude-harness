@@ -36,3 +36,10 @@ def test_sandbox_is_strict():
     assert sandbox["enabled"] is True
     assert sandbox["failIfUnavailable"] is True
     assert sandbox["allowUnsandboxedCommands"] is False
+
+
+def test_sandbox_read_exceptions_stay_narrow():
+    # The only exception to the sandbox's read rules: public CA bundles, which
+    # Python TLS clients and uv's cache need (they are named *.pem, like keys).
+    # Operator-approved on 2026-10-20; widening it needs the same approval.
+    assert SETTINGS["sandbox"]["filesystem"].get("allowRead", []) == ["**/certifi/cacert.pem"]

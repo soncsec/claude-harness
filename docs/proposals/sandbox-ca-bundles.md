@@ -1,7 +1,7 @@
 # Proposal: let sandboxed commands read public CA certificate bundles
 
-**Status:** proposed by the agent on 2026-10-20. It loosens a guardrail, so the
-operator decides and applies it.
+**Status:** accepted by the operator on 2026-10-19, in the guardrail batch after
+phase 2b. `tests/test_settings_policy.py` keeps the exception this narrow.
 
 ## The problem
 

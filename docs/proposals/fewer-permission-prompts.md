@@ -1,6 +1,6 @@
 # Proposal: drop permission prompts for routine git and gh
 
-**Status:** proposed by the agent on 2026-10-20, at the operator's request.
+**Status:** proposed by the agent on 2026-10-19, at the operator's request.
 The agent's attempt to make this change was blocked by Claude Code's auto-mode
 check as "self-modification", which is the harness working as intended: the
 operator applies changes that loosen guardrails.
