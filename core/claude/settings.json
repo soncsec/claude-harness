@@ -92,6 +92,9 @@
         "~/**/.env",
         "~/**/.env.*"
       ],
+      "allowRead": [
+        "**/certifi/cacert.pem"
+      ],
       "denyWrite": [
         ".claude",
         ".github/workflows",
