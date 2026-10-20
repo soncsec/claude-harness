@@ -27,4 +27,7 @@ are for agents working on the harness; the rules projects receive live in
   (`.claude/`, `.github/`, `quality-gates.toml`, `.security/`): the sandbox blocks
   it partway. Ask the operator to do it.
 - This repo is public: never commit personal paths, hostnames, emails or tokens.
-- Ask the operator every question with the AskUserQuestion tool.
+- Keep going until blocked by a critical design decision or a pull request to merge;
+  watch pull requests in the background (`.claude/tools/watch_pr.py`).
+- Ask the operator every question with the AskUserQuestion tool, and put anything
+  you need them to do (other than merging) in a question too, with the exact steps.

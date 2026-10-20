@@ -51,5 +51,23 @@ def test_the_skill_runs_the_installed_tool_in_the_background():
     assert "PushNotification" in BODY
 
 
+def test_after_a_merge_the_next_ready_issue_starts_without_asking():
+    assert "the next `ready` issue" in BODY
+    assert "gh issue list --label ready" in BODY
+    assert "even if an older `CLAUDE.md` asks" in BODY  # CLAUDE.md never updates
+    assert "whether to start the next `ready` issue" not in BODY
+
+
+def test_operator_commands_go_in_a_question():
+    assert "AskUserQuestion to run that command" in BODY
+
+
 def test_project_rules_point_at_the_skill():
     assert "`watch-pr` skill" in TEMPLATE
+
+
+def test_project_rules_stop_only_for_design_decisions_and_merges():
+    assert "### Critical design decisions" in TEMPLATE
+    assert "start the next `ready` issue without asking" in TEMPLATE
+    assert "the operator approves it before you write code" not in TEMPLATE
+    assert "put the exact steps in the question" in TEMPLATE

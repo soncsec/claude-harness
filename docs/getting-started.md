@@ -63,8 +63,8 @@ and type `/kickoff`.
 ### Kickoff: plan the project with Claude
 
 `/kickoff` walks a new project from an idea to its first working code. Claude
-asks you questions through the question prompt, and you approve each phase
-before the next one starts:
+asks you the questions that shape the project through the question prompt,
+then keeps going on its own; you review the result in its pull requests:
 
 | Phase | You decide | Claude writes |
 | --- | --- | --- |
@@ -72,12 +72,16 @@ before the next one starts:
 | 1. Define | Goal, users, non-goals, constraints, how sensitive the data is | `README.md`, the top of `CLAUDE.md` |
 | 2. Design | App shape, storage, sign-in, services | `docs/ARCHITECTURE.md`, ADRs in `docs/adr/`, `docs/threat-model.md`, `SECURITY.md` |
 | 3. Plan | Which issues make up the first milestone | `ROADMAP.md`, a milestone and its issues (labeled `ready` once you approve), one pull request |
-| 4. Skeleton | The plan for the skeleton, and its dependencies | A minimal app with tests and `make check`, green in CI |
+| 4. Skeleton | Its dependencies (each `uv add` asks you) | A minimal app with tests and `make check`, green in CI |
 
 You never have to check on it. When a kickoff pull request is ready, Claude
 notifies you (a desktop notification, and a phone push if Remote Control is
 on) and watches it; once you merge, it carries on by itself. The same goes for
-every pull request agents open later (the `watch-pr` skill).
+every pull request agents open later (the `watch-pr` skill): after each merge,
+the agent starts the next `ready` issue without asking. It stops only for a
+critical design decision (architecture, data, interfaces, security, costs or
+scope) or something only you can do, and then it asks through the question
+prompt, with the exact steps in the question.
 
 After the skeleton is merged, run `scripts/update-guardrails.sh` once in the
 project: it adds the new code to the coverage gate. Kickoff opens a
