@@ -22,15 +22,18 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
 ## What you get
 
 - **A guided start:** `/kickoff` takes a project from an idea to a design, a
-  threat model, a planned first milestone and a walking skeleton, with you
-  approving each phase. See [docs/getting-started.md](docs/getting-started.md).
+  threat model, a planned first milestone and a walking skeleton, asking you
+  only the questions that shape it. See [docs/getting-started.md](docs/getting-started.md).
 - **Guardrails:** permissions, an OS-level sandbox and hooks that block dangerous
   commands, keep agents away from secrets and stop them editing their own rules.
-- **Questions you will not miss:** agents must ask with the question prompt, not
-  in plain text.
+- **Agents that keep going:** they plan and build each `ready` issue on their
+  own, and stop only for a critical design decision or a pull request to merge.
+- **Questions you will not miss:** agents ask with the question prompt, never in
+  plain text, and so does anything they need you to do, such as running a
+  command.
 - **Pull requests that move on by themselves:** after opening a pull request,
   the agent watches it: it fixes failed checks, notifies you when it is ready
-  to merge, and carries on once you merge it.
+  to merge, and moves on to the next issue once you merge it.
 - **Reminders:** each session starts with what is waiting on you in GitHub.
 - **Its own GitHub identity:** agents push branches and open pull requests as a
   GitHub App bot with short-lived, one-repo tokens; you merge.

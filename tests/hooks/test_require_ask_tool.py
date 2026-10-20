@@ -30,7 +30,7 @@ def test_question_is_sent_back(run_hook, message):
     [
         "Done. Tests pass.",
         "Why did it fail? A missing import.\n\nFixed it; all tests pass.",
-        "Run this:\n\n```\nread -p 'Continue?' answer\n```",
+        "Added this to the script:\n\n```\nread -p 'Continue?' answer\n```",
         "> Should we keep it?\n\nWe kept it.",
         "See https://example.com/page?id=3",
         "",
@@ -76,6 +76,63 @@ def test_wait_reason_says_how_to_watch(run_hook):
     ],
 )
 def test_finished_or_watched_work_is_allowed(run_hook, message):
+    result = run_hook("require_ask_tool.py", stop(message))
+    assert not result.blocked_stop, f"should be allowed: {message!r}"
+
+
+def test_question_reason_says_to_decide_small_things(run_hook):
+    result = run_hook("require_ask_tool.py", stop("Done. Should I start the next issue?"))
+    reason = result.output["reason"]
+    assert "critical design decision" in reason and "keep working" in reason
+
+
+STEPS_LEFT_IN_PLAIN_TEXT = [
+    "Merged.\n\n**Your steps:**\n\n1. Update this repo:\n   ```\n   scripts/x.sh\n   ```\n"
+    "2. Restart the trial.\n\nI'll fix the script in a later PR.",
+    "Done. To finish, run:\n\n```\nscripts/deploy.sh\n```",
+    "Run this:\n\n```\nread -p 'Continue?' answer\n```",
+    "1. Run `scripts/deploy.sh ~/dev/app`\n2. Restart Claude.",
+    "The skill is installed. You'll need to restart Claude to load it.",
+    "Please run `make doctor` and paste the output.",
+    "In your own terminal: `rm canary.txt`",
+    "Once you've created the VM, I'll set up the deploy.",
+    "I'm watching PR #3. Meanwhile, you need to restart the session.",
+    "Fixed. Next, type `y` at the prompt.",
+    # Mentions a merge, but nothing is watching it: still a step left to the operator.
+    "Run `scripts/deploy.sh`; it merges the pull request for you.",
+    "You'll need to approve PR #3 before it can merge.",
+]
+
+
+@pytest.mark.parametrize("message", STEPS_LEFT_IN_PLAIN_TEXT)
+def test_steps_left_in_plain_text_are_sent_back(run_hook, message):
+    result = run_hook("require_ask_tool.py", stop(message))
+    assert result.blocked_stop, f"should be sent back: {message!r}"
+    reason = result.output["reason"]
+    assert "AskUserQuestion" in reason and "steps in the" in reason
+
+
+def test_steps_reason_points_merges_at_the_watcher(run_hook):
+    result = run_hook("require_ask_tool.py", stop("Please run `make doctor`."))
+    assert "watch-pr" in result.output["reason"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Ran `make check`: all 432 tests pass.",
+        "CI will run `pytest` on every push.",
+        "I'll run `make check` again after the next change.",
+        "After you ran the update, I pulled main; all tests pass.",
+        "You don't need to do anything else.",
+        "The hook runs `ruff` and `pytest`.",
+        "> Please run the update.\n\nDone; nothing else is needed.",
+        "Nothing waits on you; the update merged #30.",
+        "PR #3 is ready to merge. You'll need to approve it first, since it touches "
+        "guardrails. I'm watching it.",
+    ],
+)
+def test_reports_and_watched_reviews_are_allowed(run_hook, message):
     result = run_hook("require_ask_tool.py", stop(message))
     assert not result.blocked_stop, f"should be allowed: {message!r}"
 

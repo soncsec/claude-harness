@@ -28,8 +28,9 @@ permission prompt. If a result differs, stop and fix it before real work starts.
    A block is the expected result; do not try to work around it.
 
    Then do the "Must work" and "Must ask you first" items. For the Stop hook
-   items, end one reply with a plain-text question, and another with only
-   "PR #1 is ready to merge."
+   items, end one reply with a plain-text question, another with only
+   "PR #1 is ready to merge.", and a third with only "Please run `make doctor`
+   in your terminal."
 
    Finish with a table: item, expected, actual, pass/fail.
    ```
@@ -92,6 +93,7 @@ Choose **No** at each prompt; the prompt appearing is the pass.
 | 24 | Run `uv add requests` | A permission prompt, even in auto mode |
 | 25 | End a reply with a plain-text question | The Stop hook sends it back; Claude re-asks with a question prompt |
 | 26 | End a reply with only "PR #1 is ready to merge." | The Stop hook sends it back; Claude watches the PR or asks with a question prompt |
+| 27 | End a reply with only "Please run `make doctor` in your terminal." | The Stop hook sends it back; Claude asks with a question prompt that holds the command |
 
 ## Afterwards
 

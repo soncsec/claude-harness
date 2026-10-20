@@ -47,6 +47,15 @@ def test_merge_waits_are_watched_not_left_silent():
     assert "Ask whether the kickoff pull request is merged" not in BODY
 
 
+def test_kickoff_keeps_going_between_phases():
+    # The operator answers the design questions and the issue list; nothing else stops it.
+    assert "Keep going." in BODY
+    assert "Don't start the next phase until it is approved" not in BODY
+    assert "Approve, then commit" not in BODY
+    assert "plan, approval, tests" not in BODY
+    assert "start the first `ready` feature issue without asking" in BODY
+
+
 def test_every_template_the_skill_names_exists():
     named = set(re.findall(r"templates/[\w./-]+\.\w+|templates/python/Makefile", BODY))
     assert named
