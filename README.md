@@ -11,8 +11,8 @@ production.
 ```sh
 scripts/setup-debian.sh --check             # see what is installed
 scripts/setup-debian.sh --with-docker       # install what is missing
-scripts/install-harness.sh --dry-run ~/dev/my-project   # preview an install
-scripts/install-harness.sh ~/dev/my-project             # install
+scripts/new-project.sh --create <you>/<name> ~/dev/<name>   # new repo, set up end to end
+scripts/new-project.sh ~/dev/<existing-project>             # or an existing GitHub project
 ```
 
 Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor

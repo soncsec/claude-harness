@@ -1,14 +1,14 @@
 # Getting started
 
-This guide takes a project from nothing to working guardrails in about ten minutes.
-It works for a brand-new project and for one that already exists.
+Set up the machine once, then each new project takes one command and a couple
+of minutes. It works for brand-new repos and for projects that already exist.
 
 ## 1. Prepare the machine (once)
 
 On Debian 13:
 
 ```sh
-git clone <harness-repo-url> ~/dev/claude-harness
+git clone https://github.com/soncsec/claude-harness ~/dev/claude-harness
 cd ~/dev/claude-harness
 scripts/setup-debian.sh --check          # what is installed?
 scripts/setup-debian.sh --with-docker    # install what is missing
@@ -20,18 +20,61 @@ password only for the steps that need it. When it offers to add you to the
 you and for any agent running as you.
 
 Other systems need the same tools: `git`, `python3`, `make`, `uv`, `gh`, and
-for the sandbox on Linux, `bubblewrap` and `socat`.
+for the sandbox on Linux, `bubblewrap` and `socat`. Log in to GitHub with
+`gh auth login`.
 
-## 2. Install the harness into your project
+**Optional, also once:** give agents their own GitHub identity, so they can
+push branches and open pull requests while merging stays with you. Follow
+[setup/github-app.md](setup/github-app.md) (about 10 minutes), then
+`scripts/agent-token.sh install-timer`.
+
+## 2. Set up a project (one command)
 
 ```sh
-cd ~/dev/my-project          # or: mkdir my-project && cd my-project && git init
-~/dev/claude-harness/scripts/install-harness.sh --dry-run .   # preview
-~/dev/claude-harness/scripts/install-harness.sh .             # install
+# A brand-new repo (private unless you add --public):
+~/dev/claude-harness/scripts/new-project.sh --create <you>/<name> ~/dev/<name>
+
+# An existing project that is already on GitHub:
+~/dev/claude-harness/scripts/new-project.sh ~/dev/<project>
 ```
 
-The installer shows its plan, asks before installing, and asks for a project
-name and a one-line description for `CLAUDE.md`.
+Add `--dry-run` first to see the plan without changing anything.
+
+| Step | What happens |
+| --- | --- |
+| Guardrails | Settings, sandbox, hooks, `CLAUDE.md`, `.gitignore`. It asks for a project name and a one-line description. |
+| CODEOWNERS | Every change needs your review. |
+| First commit | A new, empty repo: pushed straight to `main`, before any rules exist. A repo with history: a pull request for you to merge. |
+| GitHub rules | Only reviewed pull requests reach `main`; no force pushes; tags locked. |
+| Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
+
+It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`,
+and read `CLAUDE.md` to fill in anything marked `TODO`.
+
+## 3. Tailor it
+
+See [customizing.md](customizing.md): which network domains your project needs,
+what to allow without prompting, and how to add your own protected files.
+
+## 4. Prove it works (once per harness version)
+
+Start a new Claude Code session in the project and walk through
+[red-team-checklist.md](red-team-checklist.md). Every "must be blocked" item
+should be blocked. If one is not, stop and fix it before real work starts.
+
+## Doing it step by step
+
+`new-project.sh` runs these; you can also run them yourself:
+
+```sh
+cd ~/dev/<project>
+~/dev/claude-harness/scripts/install-harness.sh .                # guardrails
+git add .claude CLAUDE.md .gitignore && git commit -m "Install claude-harness"
+git push                                                          # before the rules exist
+~/dev/claude-harness/scripts/github-setup.sh <owner>/<repo>       # rules + CODEOWNERS
+# add the repo to the agent app: github.com/settings/installations, Configure
+~/dev/claude-harness/scripts/agent-token.sh configure .           # agent identity
+```
 
 | Installed file | What it does |
 | --- | --- |
@@ -43,34 +86,6 @@ name and a one-line description for `CLAUDE.md`.
 
 It never overwrites your `CLAUDE.md`, and it shows a diff and asks before
 replacing any other file that differs from the template.
-
-## 3. Review and commit
-
-```sh
-git status
-git diff
-git add .claude CLAUDE.md .gitignore
-git commit -m "Install claude-harness guardrails"
-```
-
-Read `CLAUDE.md` and fill in anything marked `TODO`.
-
-## 4. Tailor it
-
-See [customizing.md](customizing.md): which network domains your project needs,
-what to allow without prompting, and how to add your own protected files.
-
-## 5. Prove it works
-
-Start a new Claude Code session in the project and walk through
-[red-team-checklist.md](red-team-checklist.md). Every "must be blocked" item
-should be blocked. If one is not, stop and fix it before real work starts.
-
-## 6. Optional: give Claude its own GitHub identity
-
-Agents cannot use your GitHub login. To let them push branches and open pull
-requests under their own name while merging stays with you, follow
-[setup/github-app.md](setup/github-app.md).
 
 ## What you will notice inside the sandbox
 
@@ -110,7 +125,7 @@ git -C ~/dev/claude-harness pull
 In a project that does **not** have the harness yet, you can ask Claude to
 install it. Paste this into a Claude Code session in that project:
 
-> Install claude-harness into this project. Clone `<harness-repo-url>` to
+> Install claude-harness into this project. Clone `https://github.com/soncsec/claude-harness` to
 > `~/dev/claude-harness` if it is not there yet, then run
 > `~/dev/claude-harness/scripts/install-harness.sh --yes .` from the project root.
 > Show me the plan and the smoke-test result, fill in the TODO line in CLAUDE.md
