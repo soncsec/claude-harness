@@ -207,10 +207,19 @@ def test_public_repo_gets_private_vulnerability_reporting(setup):
     assert "-X PUT repos/owner/repo/private-vulnerability-reporting" in setup["log"].read_text()
 
 
+def test_public_repo_gets_the_dependency_graph(setup):
+    # dependency-review fails without it, and GitHub leaves it off when a
+    # private repo is made public (seen live on kickoff-trial).
+    setup["env"]["FAKE_GH_VISIBILITY"] = "public"
+    assert github_setup(setup).returncode == 0
+    assert "-X PUT repos/owner/repo/vulnerability-alerts" in setup["log"].read_text()
+
+
 def test_private_repo_skips_vulnerability_reporting(setup):
-    # GitHub offers it on public repos only.
+    # GitHub offers it on public repos only, and dependency-review runs only there.
     assert github_setup(setup).returncode == 0
     assert "private-vulnerability-reporting" not in setup["log"].read_text()
+    assert "vulnerability-alerts" not in setup["log"].read_text()
 
 
 def test_github_setup_dry_run_lists_the_labels_and_creates_none(setup):

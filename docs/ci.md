@@ -18,6 +18,11 @@ ones pass, whoever opened it.
 `security.yml` also runs weekly on `main`: new vulnerabilities are found in
 code that has not changed.
 
+`dependency-review` needs the repo's dependency graph, which
+`scripts/github-setup.sh` turns on for public repos. If you make a private repo
+public later, run `github-setup.sh` again: GitHub leaves the graph off, and the
+check fails with "Dependency graph is not enabled".
+
 Run the same checks locally with `make check`. Secrets and Semgrep run in CI
 only: they need network access the local sandbox does not allow.
 
