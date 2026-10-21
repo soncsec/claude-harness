@@ -50,6 +50,10 @@ def test_statement_is_allowed(run_hook, message):
         "Over to you: merge #5 when CI is green.",
         "I'll start phase 4 when you merge the PR.",
         "Tell me when the PR is merged.",
+        "PR #6 is waiting on you.",
+        # A negation elsewhere must not hide a real step.
+        "Nothing else is waiting on you, but PR #5 is ready to merge.",
+        "The tests are not flaky. PR #7 is waiting for you.",
     ],
 )
 def test_leaving_the_operator_a_step_is_sent_back(run_hook, message):
@@ -73,6 +77,11 @@ def test_wait_reason_says_how_to_watch(run_hook):
         "After you merged #26, I pulled main; all tests pass.",
         "The label text is `ready to merge`.",
         "> Once it's merged, run the update.\n\nDone; nothing else is needed.",
+        # Saying nothing is pending is a finished report, not a step.
+        "Release 0.1.0 is tagged and every check passed.\n\nNothing is waiting on you.",
+        "Both projects are updated. Nothing here is waiting on you.",
+        "PR #39 fixed the checklist. Nothing else is waiting for you.",
+        "The session is no longer waiting on you.",
     ],
 )
 def test_finished_or_watched_work_is_allowed(run_hook, message):
