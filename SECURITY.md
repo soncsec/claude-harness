@@ -32,9 +32,10 @@ This is a small project with a single maintainer.
 
 In scope:
 
-- Hooks in `core/claude/hooks/` and the settings template in `core/claude/`
-- `scripts/install-harness.sh` and `scripts/setup-debian.sh`
-- CI workflows and templates, once they exist
+- Everything in `core/`: hooks, settings, agent rules, skills and tools, CI
+  workflows and checkers, rulesets and the CODEOWNERS template
+- The scripts in `scripts/`, including the GitHub App token handling
+  (`agent-token.sh`, `agent-session.sh`)
 - Documentation that would lead users to an insecure setup
 
 How severity is judged:
