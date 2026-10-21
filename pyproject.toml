@@ -1,6 +1,6 @@
 [project]
 name = "claude-harness"
-version = "0.1.0"
+version = "0.2.0"
 description = "A secure, repeatable harness for building software with Claude Code."
 readme = "README.md"
 license = "MIT"
