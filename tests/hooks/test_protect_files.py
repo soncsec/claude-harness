@@ -20,6 +20,7 @@ def call(tool: str, path: str, cwd: str | None = None) -> dict:
     [
         ("Edit", ".claude/settings.json"),
         ("Write", ".claude/hooks/new_hook.py"),
+        ("Edit", ".claude/rules/harness.md"),  # agents must not rewrite their own rules
         ("Write", ".github/workflows/ci.yml"),
         ("Edit", ".github/harness/test_integrity.py"),
         ("Edit", ".github/CODEOWNERS"),

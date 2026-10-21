@@ -47,7 +47,7 @@ On `timeout:`, run the same watch again without telling anyone.
 - **The next `ready` issue:** list them with
   `gh issue list --label ready --state open --json number,title,milestone,createdAt`
   and take the oldest one in the earliest open milestone, skipping any that
-  already has an open pull request. Work it as `CLAUDE.md` describes, planning
+  already has an open pull request. Work it as `.claude/rules/harness.md` describes, planning
   it yourself: don't wait for a plan approval, even if an older `CLAUDE.md` asks
   for one. Ask the operator only about a critical design decision (one that is
   hard to undo, or changes the architecture, data, interfaces, security, costs

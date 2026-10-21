@@ -120,12 +120,17 @@ git push                                                          # before the r
 | --- | --- |
 | `.claude/settings.json` | Permissions, sandbox and hook wiring |
 | `.claude/hooks/*.py` | Guardrail hooks (dangerous commands, secrets, questions, reminders) |
+| `.claude/rules/harness.md` | The rules every agent follows: workflow, hard rules, when to ask you |
 | `.claude/harness-version` | Which harness version is installed |
-| `CLAUDE.md` | Starter instructions for agents (only created if you have none) |
+| `CLAUDE.md` | Notes about your project for agents (only created if you have none) |
 | `.gitignore` | A marked block that keeps secrets and local files out of git |
 
 It never overwrites your `CLAUDE.md`, and it shows a diff and asks before
-replacing any other file that differs from the template.
+replacing any other file that differs from the template. The harness's rules
+live in `.claude/rules/harness.md`, which every update keeps current, so
+`CLAUDE.md` holds only what is particular to your project. Older installs put
+the rules in `CLAUDE.md`. The next update takes those sections out, but only
+ones nobody edited. It lists any edited ones for you to merge by hand.
 
 ## What you will notice inside the sandbox
 

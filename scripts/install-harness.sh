@@ -24,6 +24,7 @@ Usage: scripts/install-harness.sh [--dry-run] [--yes] [--force] TARGET_DIR
 What gets installed:
   .claude/settings.json      permissions, sandbox and hook wiring
   .claude/hooks/*.py         the guardrail hooks
+  .claude/rules/harness.md   the rules every agent follows (kept up to date)
   .claude/tools/watch_pr.py  lets agents watch a pull request's checks and merge
   .claude/skills/kickoff/    the /kickoff skill: plan a project, then build its skeleton
   .claude/harness-version    which harness version was installed
@@ -32,7 +33,8 @@ What gets installed:
   .github/ISSUE_TEMPLATE/    issue forms (only those missing; yours are kept)
   quality-gates.toml         coverage minimums CI enforces (only if missing; an
                              empty coverage list gets the projects found)
-  CLAUDE.md                  starter agent instructions (only if missing)
+  CLAUDE.md                  starter notes about the project (only if missing;
+                             old harness sections in yours move to .claude/rules/)
   .gitignore                 a marked block of secret and local-state rules
 
 After installing, review the changes with `git diff`, commit them, and follow
@@ -46,6 +48,7 @@ EOF
 
 HARNESS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CORE="$HARNESS_DIR/core"
+CLAUDE_MD_TOOL="$HARNESS_DIR/scripts/lib/claude_md.py"
 
 MODE=install
 ASSUME_YES=0
@@ -135,6 +138,10 @@ build_plan() {
   for hook in "$CORE"/claude/hooks/*.py; do
     plan_file "$hook" ".claude/hooks/$(basename "$hook")"
   done
+  local rules
+  for rules in "$CORE"/claude/rules/*.md; do
+    plan_file "$rules" ".claude/rules/$(basename "$rules")"
+  done
   local tool
   for tool in "$CORE"/claude/tools/*.py; do
     plan_file "$tool" ".claude/tools/$(basename "$tool")"
@@ -189,7 +196,18 @@ print_plan() {
     printf '  %-8s %s (yours is kept)\n' "keep" "${KEPT[$i]}"
   done
   if [[ -e $TARGET/CLAUDE.md ]]; then
-    printf '  %-8s %s (yours is kept; compare with core/CLAUDE.template.md)\n' "keep" "CLAUDE.md"
+    local trim status=0
+    trim=$(python3 "$CLAUDE_MD_TOOL" --check "$TARGET/CLAUDE.md") || status=$?
+    case $status in
+      0) printf '  %-8s %s (yours is kept)\n' "keep" "CLAUDE.md" ;;
+      3) printf '  %s%-8s%s %s\n' "$YELLOW" "trim" "$RESET" \
+           "CLAUDE.md (old harness sections move out; your own text is kept)" ;;
+      *) die "could not read $TARGET/CLAUDE.md" ;;
+    esac
+    local line
+    while IFS= read -r line; do
+      [[ -z $line ]] || printf '             %s\n' "$line"
+    done <<< "$trim"
   else
     printf '  %s%-8s%s %s\n' "$GREEN" "new" "$RESET" "CLAUDE.md"
   fi
@@ -280,8 +298,12 @@ if count:
 
 install_claude_md() {
   local dest="$TARGET/CLAUDE.md" name description content
-  [[ -e $dest ]] && return 0
   [[ $MODE == dry-run ]] && return 0
+  if [[ -e $dest ]]; then
+    # The harness's rules now live in .claude/rules/harness.md: take the old copies out.
+    python3 "$CLAUDE_MD_TOOL" "$dest" >/dev/null
+    return 0
+  fi
   name=$(ask "Project name" "$(basename "$(cd "$TARGET" && pwd)")")
   description=$(ask "One line about what it does" "TODO: describe this project in one line.")
   content=$(<"$CORE/CLAUDE.template.md")

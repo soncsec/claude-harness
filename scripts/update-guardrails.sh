@@ -51,7 +51,7 @@ done
 if [[ -t 1 ]]; then BOLD=$'\e[1m' RESET=$'\e[0m'; else BOLD='' RESET=''; fi
 step() { printf '\n%s%s%s\n' "$BOLD" "$*" "$RESET"; }
 
-INSTALLED_PATHS=(.claude .github/workflows .github/harness .github/ISSUE_TEMPLATE quality-gates.toml .gitignore)
+INSTALLED_PATHS=(.claude .github/workflows .github/harness .github/ISSUE_TEMPLATE quality-gates.toml .gitignore CLAUDE.md)
 
 confirm() {
   local reply=''
