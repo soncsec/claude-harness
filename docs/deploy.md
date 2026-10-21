@@ -69,6 +69,35 @@ You need:
 The app listens on `127.0.0.1:<port>` only. Put a reverse proxy (Caddy, nginx)
 in front of it for outside traffic and TLS.
 
+## Servers on a private network
+
+GitHub's own runners deploy over the internet, so they cannot reach servers
+that only your network knows (a home lab, an office LAN). Run the two deploy
+jobs on a runner inside your network instead. The build still runs on GitHub.
+
+1. Add `--runner <label>` to `setup-deploy.sh`, for example `--runner lab-deploy`.
+   It sets the repo's `DEPLOY_RUNNER` variable. On a public repo it also makes
+   every outside contributor's workflow wait for your approval, because
+   otherwise a stranger's pull request could add a workflow that runs on your
+   machine. If that setting cannot be applied, the script stops.
+2. On a machine that can reach both servers (your dev machine works), run the
+   command it prints:
+
+   ```sh
+   gh api -X POST repos/<owner>/<repo>/actions/runners/registration-token --jq .token \
+     | sudo scripts/setup-deploy-runner.sh --repo <owner>/<repo> --label lab-deploy
+   ```
+
+   It installs GitHub's runner at a pinned version, after checking the
+   download's SHA-256. It runs as a system account with no login shell and no
+   sudo, and registers to that one repo with only your label, so it takes the
+   deploy jobs and nothing else. The token comes in on stdin, so it never shows
+   up in `ps` or your shell history.
+
+The runner holds a deploy key only while a deploy job runs, and production's
+key only after you approve. To go back to GitHub's runners, delete the
+variable: `gh variable delete DEPLOY_RUNNER --repo <owner>/<repo>`.
+
 ## What the app must do
 
 - Listen on `0.0.0.0:$PORT` inside the container.
@@ -88,6 +117,7 @@ in front of it for outside traffic and TLS.
 | A bad release | The health check fails and the server switches back to the previous image |
 | The app is compromised | It runs as an unprivileged account in rootless Podman, with a read-only filesystem, no Linux capabilities and no new privileges. It is not root on the host |
 | A new advisory since the PR | The build audits the locked dependencies again and stops on a known vulnerability |
+| A stranger's workflow runs on your own runner | On public repos, outside contributors' workflows wait for your approval (`setup-deploy.sh --runner` sets it). Agents cannot add workflows, and the runner only takes jobs with your deploy label |
 
 On private repos with GitHub Free, environments do not work at all.
 `setup-deploy.sh` stops before changing anything, and it also stops before
