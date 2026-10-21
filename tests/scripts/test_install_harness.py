@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import time
 import tomllib
@@ -237,3 +238,52 @@ def test_coverage_list_with_entries_is_never_changed(project):
     add_python_project(project / "worker")
     install(project, "--yes", "--force")
     assert gates.read_text() == raised
+
+
+@pytest.fixture
+def harness_copy(tmp_path: Path) -> Path:
+    """A committed copy of the harness, so its working tree can be made dirty."""
+    copy = tmp_path / "harness"
+    for part in ("core", "scripts"):
+        shutil.copytree(REPO / part, copy / part, ignore=shutil.ignore_patterns("__pycache__"))
+    git = ["git", "-C", str(copy), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "core", "scripts"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "harness"], check=True)
+    return copy
+
+
+def install_from(harness: Path, target: Path) -> str:
+    result = subprocess.run(
+        [str(harness / "scripts" / "install-harness.sh"), "--yes", str(target)],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return (target / ".claude" / "harness-version").read_text().splitlines()[0]
+
+
+def test_version_ignores_changes_outside_the_template(harness_copy, project):
+    # The operator's own install into the harness repo rewrites its committed
+    # .claude/; that must not mark the template dirty.
+    installed = harness_copy / ".claude" / "settings.json"
+    installed.parent.mkdir()
+    installed.write_text("{}\n")
+    git = ["git", "-C", str(harness_copy), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run([*git, "add", ".claude"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "installed copy"], check=True)
+    installed.write_text('{"permissions": {}}\n')
+    (harness_copy / "notes.txt").write_text("scratch\n")
+    version = install_from(harness_copy, project)
+    assert version.startswith("claude-harness ")
+    assert not version.endswith("-dirty")
+
+
+@pytest.mark.parametrize("path", ["core/claude/hooks/guard_bash.py", "scripts/new-file.sh"])
+def test_version_is_dirty_when_the_template_has_uncommitted_changes(harness_copy, project, path):
+    changed = harness_copy / path
+    changed.write_text(changed.read_text() + "\n# local edit\n" if changed.exists() else "x\n")
+    assert install_from(harness_copy, project).endswith("-dirty")

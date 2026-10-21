@@ -74,6 +74,11 @@ def test_operator_commands_go_in_a_question():
     assert "AskUserQuestion to run that command" in BODY
 
 
+def test_project_rules_close_finished_operator_steps():
+    # A done needs-human issue left open keeps reminding the operator for nothing.
+    assert "close it with a one-line comment" in RULES
+
+
 def test_project_rules_point_at_the_skill():
     assert "`watch-pr` skill" in RULES
 
