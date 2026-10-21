@@ -3,6 +3,16 @@
 Notable changes to claude-harness. Projects record which version they run in
 `.claude/harness-version`; `scripts/update-guardrails.sh` brings them up to date.
 
+## Unreleased
+
+### Fixes
+
+- The Bash guard reads two more kinds of text as data, not commands: heredocs
+  that a plain `cat` or `tee` line writes to a file, and `"$(cat <<'EOF' … EOF)"`
+  as a commit, PR, issue or release message. Writing docs or tests that mention
+  `.claude/`, `sudo` or `gh secret set` no longer gets blocked. Heredocs fed to
+  a shell or an interpreter are still checked in full.
+
 ## 0.2.0 - 2026-10-21
 
 Deploys you approve, tested live: kickoff-trial deployed to two ARM servers on
