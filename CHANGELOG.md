@@ -3,7 +3,10 @@
 Notable changes to claude-harness. Projects record which version they run in
 `.claude/harness-version`; `scripts/update-guardrails.sh` brings them up to date.
 
-## Unreleased
+## 0.2.0 - 2026-10-21
+
+Deploys you approve, tested live: kickoff-trial deployed to two ARM servers on
+a private network, through staging to production.
 
 ### Deploys
 
@@ -19,7 +22,6 @@ Notable changes to claude-harness. Projects record which version they run in
   that have it.
 - `/kickoff` adds a `Containerfile` and `make container-context` for projects
   that run on servers, plus a `needs-human` issue to turn deploys on.
-
 - Servers on a private network: `setup-deploy.sh --runner LABEL` runs the
   staging and production jobs on a runner inside your network, installed by
   `scripts/setup-deploy-runner.sh` (pinned, checksum-checked, one repo, one
@@ -37,6 +39,14 @@ Notable changes to claude-harness. Projects record which version they run in
   or a paid plan) and stops with the options before changing anything.
 - The Stop hook no longer treats "nothing is waiting on you" as a step left to
   the operator.
+
+### Docs
+
+- The docs match what `core/` installs (every installed file, the protected
+  paths, CI permissions, the security policy's scope).
+- Red-team checklist: start the session with `--permission-mode manual`, run
+  the Stop hook items one turn at a time, and the deploy items 28-34,
+  including a rollback drill.
 
 ## 0.1.0 - 2026-10-21
 
