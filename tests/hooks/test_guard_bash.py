@@ -89,6 +89,21 @@ BLOCKED = [
     "git commit -m 'Update docs' && touch .claude/x",
     "git commit -F - <<'EOF'\nmessage\nEOF\ntouch .claude/x",
     "git commit -m 'safe' ; sudo whoami",
+    # heredocs are data only when cat/tee writes them out and the line does nothing else
+    "cat > .claude/settings.json <<'EOF'\n{}\nEOF",
+    "tee .github/workflows/x.yml <<'EOF'\nname: x\nEOF",
+    "cat <<'EOF' | sh\nsudo whoami\nEOF",
+    "cat > notes.md <<EOF\n$(sudo whoami)\nEOF",
+    "cat > notes.md <<'EOF' && sudo whoami\ntext\nEOF",
+    "cat > notes.md <<'EOF'\ntext\nEOF\nsudo whoami",
+    "python3 - <<'EOF'\nimport os; os.system('sudo whoami')\nEOF",
+    "bash <<'EOF'\nsudo whoami\nEOF",
+    # "$(cat <<'EOF' ...)" is text only as a whole message value
+    "sh -c \"$(cat <<'EOF'\nsudo whoami\nEOF\n)\"",
+    "gh pr create --title t --body \"$(cat <<'EOF'\ntext\nEOF\n)$(sudo whoami)\"",
+    "git commit -m \"$(cat <<'EOF'\nmsg\nEOF\n)\" && sudo whoami",
+    # a delimiter line inside ends the heredoc in bash, so what follows would run
+    "gh pr create --title t --body \"$(cat <<'EOF'\ntext\nEOF\nsudo whoami\nEOF\n)\"",
     # approving a deployment, in its different spellings
     "gh api -X POST repos/o/r/actions/runs/1/pending_deployments -f state=approved",
     "gh api repos/o/r/actions/runs/1/pending_deployments -F environment_ids[]=1",
@@ -185,6 +200,19 @@ ALLOWED = [
     "git add src/app.py tests/test_app.py",
     "git add ./src",
     "git commit -a -m wip",
+    # file content written by cat/tee is data: docs and tests may name anything
+    "cat > docs/notes.md <<'EOF'\nAgents never touch .claude/settings.json or run sudo.\n"
+    "rm -rf .claude is blocked, and so is cat .env.\nEOF",
+    "cat >> tests/test_x.py <<'EOF'\n    (home / \".claude\").mkdir()\nEOF",
+    "tee -a docs/x.md <<'EOF'\nsudo and gh secret set are blocked\nEOF",
+    "cat > docs/a.md <<EOF\nA plain heredoc that mentions sudo and .claude/, no expansions\nEOF",
+    # so are "$(cat <<'EOF' ...)" commit, PR, issue and release texts
+    "gh pr create --title t --body \"$(cat <<'EOF'\nRuns make install-harness TARGET=. for you.\n"
+    'EOF\n)"',
+    "gh issue comment 47 --body \"$(cat <<'EOF'\n| 28 | gh secret set DEPLOY_SSH_KEY | Blocked |\n"
+    'EOF\n)"',
+    "git commit -q -m \"$(cat <<'EOF'\nMention sudo and .claude/\nEOF\n)\"",
+    "gh release create v1 --notes \"$(cat <<'EOF'\nmentions .env and sudo\nEOF\n)\"",
 ]
 
 

@@ -252,6 +252,45 @@ GH_TEXT_ARG_RX = re.compile(
 )
 
 
+# A heredoc that cat or tee writes out is file content, not a command, as long as
+# the line does nothing else: no pipe, no ; or &&, no $(...). Its target is still
+# checked, since the line stays.
+DATA_SINK_LINE_RX = re.compile(r"^\s*(?:cat|tee)(?:\s[^;&|`]*)?$")
+# "$(cat <<'EOF' ... EOF)" as the whole value of a message flag on a git commit or
+# gh pr/issue/release line: a quoted heredoc cannot run anything, so it is text.
+CAT_HEREDOC_VALUE_START_RX = re.compile(
+    r"""(\b(?:git\b[^\n;&|]*?\bcommit|gh\s+(?:pr|issue|release)\s+[a-z-]+)\b[^\n;&|]*?"""
+    r"""\s(?:-m|--message|-b|--body|-t|--title|-n|--notes)(?:\s+|=))"""
+    r""""\$\(\s*cat\s*<<-?\s*'(\w+)'[ \t]*\n"""
+)
+
+
+def drop_cat_heredoc_values(command: str) -> str:
+    """Replace each "$(cat <<'EOF' ... EOF)" message value with a placeholder.
+
+    The heredoc ends at the first line that is only the delimiter, as in bash,
+    and must be followed straight away by `)"`. Otherwise it is left alone and
+    checked as usual, so nothing bash would run after the heredoc can hide here.
+    """
+    pos = 0
+    while match := CAT_HEREDOC_VALUE_START_RX.search(command, pos):
+        delimiter, body_start = match.group(2), match.end()
+        end = None
+        for line in re.finditer(r"[^\n]*(?:\n|$)", command[body_start:]):
+            if line.group().strip() == delimiter:
+                end = body_start + line.end()
+                break
+            if not line.group():
+                break
+        closing = re.match(r'[ \t]*\)"', command[end:]) if end is not None else None
+        if not closing:
+            pos = match.end()
+            continue
+        command = command[: match.start()] + match.group(1) + "MSG" + command[end + closing.end() :]
+        pos = match.start() + len(match.group(1)) + 3
+    return command
+
+
 def _drop_message(match: re.Match[str]) -> str:
     message = match.group(2)
     # Single quotes never expand; anything else is kept if it could run code.
@@ -266,8 +305,11 @@ def strip_commit_messages(command: str) -> str:
     Commit messages often name protected files ("update .claude/settings.json").
     A message is kept, and so still checked, when it could run code: an unquoted
     or double-quoted message, or an unquoted heredoc, containing $(...) or backticks.
-    The same goes for `gh pr|issue create|edit|comment|review` titles and bodies.
+    The same goes for `gh pr|issue create|edit|comment|review` titles and bodies,
+    for "$(cat <<'EOF' ... EOF)" message values, and for heredocs that a line
+    holding only `cat` or `tee` writes to a file.
     """
+    command = drop_cat_heredoc_values(command)
     for _ in range(10):  # one flag value per pass; a command has only a few
         stripped = GH_TEXT_ARG_RX.sub(_drop_message, command, count=1)
         if stripped == command:
@@ -278,10 +320,13 @@ def strip_commit_messages(command: str) -> str:
     i = 0
     while i < len(lines):
         line = lines[i]
-        if GIT_COMMIT_RX.search(line):
+        is_commit = bool(GIT_COMMIT_RX.search(line))
+        if is_commit:
             line = MESSAGE_ARG_RX.sub(_drop_message, line)
+        if is_commit or DATA_SINK_LINE_RX.search(line):
             heredoc = QUOTED_HEREDOC_RX.search(line) or PLAIN_HEREDOC_RX.search(line)
-            if heredoc and STDIN_MESSAGE_RX.search(line):
+            reads_heredoc = STDIN_MESSAGE_RX.search(line) if is_commit else "$(" not in line
+            if heredoc and reads_heredoc:
                 quoted = heredoc.re is QUOTED_HEREDOC_RX
                 delimiter = heredoc.group(2) if quoted else heredoc.group(1)
                 end = next(
