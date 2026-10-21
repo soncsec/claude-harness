@@ -69,7 +69,9 @@ jobs:
   staging:
     name: staging
     needs: build
-    runs-on: ubuntu-latest
+    # GitHub's runners, or a runner inside your network when the servers are
+    # not reachable from the internet (setup-deploy.sh --runner).
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     environment: staging
     permissions: {}
@@ -91,7 +93,7 @@ jobs:
   production:
     name: production
     needs: [build, staging]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     environment: production  # waits for the operator's approval
     permissions: {}

@@ -18,6 +18,9 @@ Usage: scripts/setup-deploy.sh [options] --staging USER@HOST --production USER@H
   --app NAME              the app's name on the servers (default: the repo name)
   --port PORT             the port the app listens on (default 8000)
   --health-path PATH      answers 2xx once the app is up (default /health)
+  --runner LABEL          run the deploy jobs on your own runner with this label,
+                          for servers GitHub's runners cannot reach (a private
+                          network); see scripts/setup-deploy-runner.sh
   --dry-run               show what would change; change nothing
   -h, --help              show this help
 
@@ -32,6 +35,9 @@ What it does:
   host keys      each server's SSH host keys become DEPLOY_KNOWN_HOSTS, so CI
                  refuses an impostor (compare the fingerprints it prints)
   DEPLOY_HOST    each environment's USER@HOST variable
+  --runner       sets the DEPLOY_RUNNER variable, and on public repos makes every
+                 outside contributor's workflow wait for your approval, so no
+                 one else's code can run on your runner
 
 Then run the printed setup-deploy-host.sh command on each server.
 See docs/deploy.md.
@@ -43,7 +49,7 @@ HARNESS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source "$HARNESS_DIR/scripts/lib/github-app.sh"
 WORKFLOW_SOURCE="$HARNESS_DIR/core/deploy/deploy.yml"
 
-STAGING='' PRODUCTION='' APP='' PORT=8000 HEALTH_PATH=/health DRY_RUN=0 DIR=''
+STAGING='' PRODUCTION='' APP='' PORT=8000 HEALTH_PATH=/health RUNNER='' DRY_RUN=0 DIR=''
 while (( $# )); do
   case $1 in
     --staging)     STAGING=${2:-}; shift ;;
@@ -51,6 +57,7 @@ while (( $# )); do
     --app)         APP=${2:-}; shift ;;
     --port)        PORT=${2:-}; shift ;;
     --health-path) HEALTH_PATH=${2:-}; shift ;;
+    --runner)      RUNNER=${2:-}; shift ;;
     --dry-run)     DRY_RUN=1 ;;
     -h|--help)     usage; exit 0 ;;
     -*)            usage >&2; die "unknown option: $1" ;;
@@ -70,6 +77,9 @@ valid_target "$STAGING" || die "--staging must be USER@HOST, e.g. deploy@staging
 valid_target "$PRODUCTION" || die "--production must be USER@HOST, e.g. deploy@app.example.com"
 if [[ ! $PORT =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then die "--port must be 1-65535"; fi
 [[ $HEALTH_PATH =~ ^/[A-Za-z0-9._~/-]*$ ]] || die "--health-path must start with / and have no spaces"
+if [[ -n $RUNNER && ! $RUNNER =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]]; then
+  die "--runner must be lowercase letters, digits and dashes"
+fi
 for tool in gh git ssh-keygen ssh-keyscan; do
   command -v "$tool" >/dev/null || die "$tool is required"
 done
@@ -150,6 +160,21 @@ if ! setup_environment production; then
   die "stopped before creating deploy keys: without an approval gate, every merge would reach production"
 fi
 
+if [[ -n $RUNNER ]]; then
+  log "Deploy jobs run on your runner (label $RUNNER)"
+  if [[ $VISIBILITY == PUBLIC ]]; then
+    # A runner inside your network must never run a stranger's workflow.
+    if ! run gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" \
+        -f approval_policy=all_external_contributors --silent; then
+      die "could not make outside contributors' workflows wait for your approval. Set it in
+  Settings > Actions > General > Approval for running fork pull request workflows,
+  then run this again"
+    fi
+    printf "  outside contributors' workflows now wait for your approval\n"
+  fi
+  run gh variable set DEPLOY_RUNNER --repo "$REPO" --body "$RUNNER"
+fi
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 declare -A HOST_COMMAND
@@ -178,8 +203,20 @@ for env in staging production; do
 done
 
 log "Next steps"
+step=1
+if [[ -n $RUNNER ]]; then
+  cat <<EOF
+$step. On a machine inside your network that reaches both servers (it can be this
+   one), with the harness cloned there, as a user whose gh can administer $REPO:
+
+     gh api -X POST repos/$REPO/actions/runners/registration-token --jq .token \\
+       | sudo scripts/setup-deploy-runner.sh --repo $REPO --label $RUNNER
+
+EOF
+  step=$((step + 1))
+fi
 cat <<EOF
-1. On each server, with the harness cloned there (git clone https://github.com/soncsec/claude-harness):
+$step. On each server, with the harness cloned there (git clone https://github.com/soncsec/claude-harness):
 
    staging ($STAGING):
      ${HOST_COMMAND[staging]}
@@ -198,13 +235,13 @@ else
   cat <<EOF
 
    After the first build, make the package public (GitHub > your profile >
-   Packages > $APP > Package settings), or add --pull-user/--pull-token-file
+   Packages > ${REPO#*/} > Package settings), or add --pull-user/--pull-token-file
    with a read:packages token.
 EOF
 fi
 cat <<EOF
 
-2. Commit .github/workflows/deploy.yml through a pull request and merge it.
+$((step + 1)). Commit .github/workflows/deploy.yml through a pull request and merge it.
    The merge builds the image and deploys to staging; production waits for
    your approval in the Actions tab.
 EOF

@@ -35,6 +35,9 @@ elif args[:2] == ["api", "orgs/Owner"]:
         sys.stderr.write("HTTP 404: Not Found\n")
         sys.exit(1)
     print(os.environ["FAKE_ORG_PLAN"])
+elif "fork-pr-contributor-approval" in joined and os.environ.get("FAKE_NO_FORK_APPROVAL"):
+    sys.stderr.write("HTTP 403: Resource not accessible\n")
+    sys.exit(1)
 elif "environments/production" in joined and "PUT" in args and os.environ.get("FAKE_NO_REVIEWERS"):
     sys.stderr.write("HTTP 422: Upgrade to GitHub Pro or make this repository public\n")
     sys.exit(1)
@@ -292,3 +295,67 @@ def test_needs_a_github_remote(project):
 
 def test_ssh_tools_are_available():
     assert shutil.which("ssh-keygen"), "ssh-keygen is needed to run these tests"
+
+
+# --- A runner inside the operator's network ---------------------------------
+
+
+def call_index(project, predicate) -> int:
+    return next(i for i, c in enumerate(project.calls()) if predicate(c["args"]))
+
+
+def test_runner_label_becomes_the_repo_variable(project):
+    result = project.setup("--runner", "lab-deploy")
+    assert result.returncode == 0, result.stderr
+    assert any(
+        c["args"]
+        == ["variable", "set", "DEPLOY_RUNNER", "--repo", "Owner/Notes_API", "--body", "lab-deploy"]
+        for c in project.calls()
+    )
+
+
+def test_public_repos_make_strangers_wait_before_any_secret_is_stored(project):
+    project.setup("--runner", "lab-deploy")
+    approval = call_index(
+        project,
+        lambda a: "repos/Owner/Notes_API/actions/permissions/fork-pr-contributor-approval" in a,
+    )
+    first_secret = call_index(project, lambda a: a[:2] == ["secret", "set"])
+    assert approval < first_secret
+    approval_args = project.calls()[approval]["args"]
+    assert "approval_policy=all_external_contributors" in approval_args
+
+
+def test_no_secrets_if_strangers_cannot_be_made_to_wait(project):
+    result = project.setup("--runner", "lab-deploy", env={"FAKE_NO_FORK_APPROVAL": "1"})
+    assert result.returncode == 1
+    assert "wait for your approval" in result.stderr
+    assert not any(c["args"][:2] == ["secret", "set"] for c in project.calls())
+
+
+def test_private_repos_need_no_fork_approval(project):
+    result = project.setup(
+        "--runner", "lab-deploy", env={"FAKE_VISIBILITY": "PRIVATE", "FAKE_PLAN": "pro"}
+    )
+    assert result.returncode == 0, result.stderr
+    assert not any("fork-pr-contributor-approval" in " ".join(c["args"]) for c in project.calls())
+
+
+def test_runner_setup_is_the_first_next_step(project):
+    result = project.setup("--runner", "lab-deploy")
+    steps = result.stdout.split("Next steps")[1]
+    assert "1. On a machine inside your network" in steps
+    assert "setup-deploy-runner.sh --repo Owner/Notes_API --label lab-deploy" in steps
+    assert "2. On each server" in steps and "3. Commit" in steps
+
+
+def test_without_a_runner_the_cloud_runners_are_used(project):
+    result = project.setup()
+    assert "1. On each server" in result.stdout and "2. Commit" in result.stdout
+    assert not any("DEPLOY_RUNNER" in c["args"] for c in project.calls())
+
+
+def test_a_bad_runner_label_is_refused(project):
+    result = project.setup("--runner", "Lab Deploy")
+    assert result.returncode != 0
+    assert project.calls() == []

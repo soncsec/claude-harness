@@ -20,6 +20,11 @@ Notable changes to claude-harness. Projects record which version they run in
 - `/kickoff` adds a `Containerfile` and `make container-context` for projects
   that run on servers, plus a `needs-human` issue to turn deploys on.
 
+- Servers on a private network: `setup-deploy.sh --runner LABEL` runs the
+  staging and production jobs on a runner inside your network, installed by
+  `scripts/setup-deploy-runner.sh` (pinned, checksum-checked, one repo, one
+  label). On public repos, outside contributors' workflows then need approval.
+
 ### Fixes
 
 - `github-setup.sh` turns on Dependabot alerts on public repos, which turns on

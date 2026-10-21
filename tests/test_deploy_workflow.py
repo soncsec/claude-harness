@@ -93,3 +93,11 @@ def test_the_python_containerfile_runs_unprivileged_from_locked_hashes():
 def test_the_python_makefile_prepares_the_build_context():
     assert re.search(r"^container-context:", MAKEFILE, re.MULTILINE)
     assert "--no-dev" in MAKEFILE and "requirements.txt" in MAKEFILE
+
+
+def test_deploy_jobs_can_run_inside_the_operators_network():
+    # Servers on a private network need a runner there (setup-deploy.sh --runner).
+    for name in ("staging", "production"):
+        assert "runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}" in job(name)
+    # Building stays on GitHub's runners: it needs podman, and no secrets of yours.
+    assert "runs-on: ubuntu-latest" in job("build")
