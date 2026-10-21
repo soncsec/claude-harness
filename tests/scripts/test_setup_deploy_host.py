@@ -17,11 +17,13 @@ KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyDataOnlyForTests0123456789
 KEY2 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecondKeyDataOnlyForTests0123456789abcd"
 
 # Every system command is faked: each logs its arguments. useradd makes the
-# account exist for getent.
+# account exist for getent. id always answers as an ordinary user, so the root
+# check behaves the same whoever runs the tests.
 FAKE = r"""#!/usr/bin/env bash
 state=$FAKE_STATE
 echo "$(basename "$0") $*" >> "$state/log"
 case $(basename "$0") in
+  id) echo 1000 ;;
   useradd) touch "$state/user-exists" ;;
   getent)
     if [[ -e $state/user-exists ]]; then
@@ -38,7 +40,7 @@ exit 0
 def host(tmp_path: Path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name in ("apt-get", "useradd", "loginctl", "systemctl", "chown", "getent"):
+    for name in ("apt-get", "useradd", "loginctl", "systemctl", "chown", "getent", "id"):
         (bin_dir / name).write_text(FAKE)
         (bin_dir / name).chmod(0o755)
     state = tmp_path / "state"
@@ -180,10 +182,9 @@ def test_dry_run_changes_nothing(host):
 
 def test_it_needs_root_on_a_real_server(host):
     result = host.setup(use_root=False)
-    if os.geteuid() == 0:
-        pytest.skip("running as root")
     assert result.returncode == 1
     assert "run this as root" in result.stderr
+    assert "apt-get" not in host.log()  # it stops before changing anything
 
 
 # --- Bad input never reaches authorized_keys or the config ------------------
