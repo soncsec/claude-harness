@@ -102,7 +102,11 @@ jobs:
     needs: [build, staging]
     runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
-    environment: production  # waits for the operator's approval
+    # Waits for the operator's approval. prevent_self_review stays off on
+    # purpose: the operator's own merge starts each deploy and they are the only
+    # reviewer, so turning it on would block every production deploy. Agents
+    # cannot approve either way: they are not reviewers.
+    environment: production
     permissions: {}
     steps:
       - name: deploy to production (the server checks the image and rolls back if unhealthy)

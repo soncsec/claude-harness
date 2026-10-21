@@ -111,7 +111,7 @@ variable: `gh variable delete DEPLOY_RUNNER --repo <owner>/<repo>`.
 | Threat | What stops it |
 | --- | --- |
 | A pull request deploys, or reads the deploy keys | The workflow runs only on pushes to `main`, and the environments accept deploys from `main` only |
-| Something reaches production without you | The `production` environment needs your approval, and agents cannot approve deployments |
+| Something reaches production without you | The `production` environment needs your approval, and agents cannot approve deployments: they are not reviewers, and the agent's app has no deployments permission. `prevent_self_review` stays off on purpose: your own merges start the deploys, so with it on you could never approve one |
 | The CI key is stolen | It can only run `deploy-receive.sh`, which accepts only `<image>@sha256:<digest>` of the configured image (no shell, port forwarding or other images). Staging and production have different keys |
 | Someone pretends to be your server | CI checks the server against the stored host keys (`StrictHostKeyChecking=yes`) |
 | A bad release | The health check fails and the server switches back to the previous image |
