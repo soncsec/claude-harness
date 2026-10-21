@@ -28,7 +28,13 @@ if args[:2] == ["repo", "view"] and "defaultBranchRef" in joined:
 elif args[:2] == ["repo", "view"] and "visibility" in joined:
     print(os.environ.get("FAKE_VISIBILITY", "PUBLIC"))
 elif args[:2] == ["api", "user"]:
-    print(4242)
+    login = os.environ.get("FAKE_LOGIN", "owner")
+    print(f"4242\t{login}\t{os.environ.get('FAKE_PLAN', 'free')}")
+elif args[:2] == ["api", "orgs/Owner"]:
+    if "FAKE_ORG_PLAN" not in os.environ:
+        sys.stderr.write("HTTP 404: Not Found\n")
+        sys.exit(1)
+    print(os.environ["FAKE_ORG_PLAN"])
 elif "environments/production" in joined and "PUT" in args and os.environ.get("FAKE_NO_REVIEWERS"):
     sys.stderr.write("HTTP 422: Upgrade to GitHub Pro or make this repository public\n")
     sys.exit(1)
@@ -215,8 +221,44 @@ def test_a_default_branch_other_than_main_is_refused(project):
 
 
 def test_private_repos_are_told_about_the_pull_token(project):
-    result = project.setup(env={"FAKE_VISIBILITY": "PRIVATE"})
+    result = project.setup(env={"FAKE_VISIBILITY": "PRIVATE", "FAKE_PLAN": "pro"})
+    assert result.returncode == 0, result.stderr
     assert "read:packages" in result.stdout and "--pull-token-file" in result.stdout
+
+
+def test_no_environment_sets_a_wait_timer(project):
+    # Some plans refuse wait_timer outright, even at 0 (seen live on GitHub Free).
+    project.setup()
+    for env in ("staging", "production"):
+        assert "wait_timer" not in environment_body(project, env)
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        {"FAKE_VISIBILITY": "PRIVATE", "FAKE_PLAN": "free"},
+        {"FAKE_VISIBILITY": "PRIVATE", "FAKE_LOGIN": "someone", "FAKE_ORG_PLAN": "free"},
+    ],
+    ids=["own-repo", "org-repo"],
+)
+def test_private_repos_on_github_free_stop_before_changing_anything(project, env):
+    result = project.setup(env=env)
+    assert result.returncode == 1
+    assert "private on GitHub Free" in result.stderr
+    assert "gh repo edit Owner/Notes_API --visibility public" in result.stderr
+    assert not (project.dir / ".github").exists()
+    assert not any("PUT" in c["args"] or c["args"][1:2] == ["set"] for c in project.calls())
+
+
+def test_public_repos_on_github_free_are_fine(project):
+    result = project.setup(env={"FAKE_PLAN": "free"})
+    assert result.returncode == 0, result.stderr
+
+
+def test_an_org_plan_it_cannot_read_only_warns(project):
+    result = project.setup(env={"FAKE_VISIBILITY": "PRIVATE", "FAKE_LOGIN": "someone"})
+    assert result.returncode == 0, result.stderr
+    assert "cannot tell Owner's plan" in result.stderr
 
 
 def test_dry_run_reads_but_never_writes(project):

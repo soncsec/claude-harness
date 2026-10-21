@@ -87,7 +87,26 @@ DEFAULT_BRANCH=$(gh repo view "$REPO" --json defaultBranchRef --jq .defaultBranc
 # The workflow deploys from main, and harness updates keep it identical to the template.
 [[ $DEFAULT_BRANCH == main ]] || die "deploys need the default branch to be 'main' ($REPO uses '$DEFAULT_BRANCH')"
 VISIBILITY=$(gh repo view "$REPO" --json visibility --jq .visibility)
-ME_ID=$(gh api user --jq .id)
+IFS=$'\t' read -r ME_ID ME_LOGIN ME_PLAN < <(gh api user --jq '[.id, .login, (.plan.name // "unknown")] | @tsv')
+
+# Environments (the deploy secrets and the production approval) work in private
+# repos only on paid plans; on GitHub Free, GitHub ignores them. Stop before
+# changing anything rather than leave a deploy path that cannot work.
+if [[ $VISIBILITY != PUBLIC ]]; then
+  OWNER=${REPO%%/*}
+  if [[ ${OWNER,,} == "${ME_LOGIN,,}" ]]; then
+    PLAN=$ME_PLAN
+  else
+    PLAN=$(gh api "orgs/$OWNER" --jq '.plan.name // "unknown"' 2>/dev/null || echo unknown)
+  fi
+  if [[ $PLAN == free ]]; then
+    die "$REPO is private on GitHub Free, where GitHub ignores environment secrets and approvals.
+  Make it public:  gh repo edit $REPO --visibility public --accept-visibility-change-consequences
+  or move it to a paid plan (GitHub Pro or Team), then run this again."
+  elif [[ $PLAN == unknown ]]; then
+    printf '  warning: cannot tell %s'"'"'s plan; private repos need GitHub Pro or Team for deploy environments\n' "$OWNER" >&2
+  fi
+fi
 
 log "Workflow: .github/workflows/deploy.yml"
 [[ -f $DIR/Containerfile ]] || printf '  note: no Containerfile in %s yet; the build job needs one (see docs/deploy.md)\n' "$DIR"
@@ -102,9 +121,10 @@ fi
 setup_environment() {
   local env=$1 body
   if [[ $env == production ]]; then
-    body=$(printf '{"wait_timer": 0, "prevent_self_review": false, "reviewers": [{"type": "User", "id": %s}], "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}' "$ME_ID")
+    # No wait_timer: some plans refuse the setting outright, even at 0.
+    body=$(printf '{"prevent_self_review": false, "reviewers": [{"type": "User", "id": %s}], "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}' "$ME_ID")
   else
-    body='{"wait_timer": 0, "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}'
+    body='{"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}'
   fi
   if (( DRY_RUN )); then
     printf '  + gh api -X PUT repos/%s/environments/%s  %s\n' "$REPO" "$env" "$body"
