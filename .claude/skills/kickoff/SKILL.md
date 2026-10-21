@@ -94,7 +94,13 @@ Decide, recommending the simplest choice that fits phase 1:
 - **Sign-in:** none, username and password with sessions, API tokens, or an
   external provider (OpenID Connect).
 - **External services and secrets:** each one is an entry point and a secret to manage.
-- **Where it runs:** the operator's staging and production servers, or nowhere yet.
+- **Where it runs:** nowhere yet, or the operator's staging and production
+  servers. Servers mean the harness's deploy path: a container image built on
+  each merge, staging first, production after the operator approves, rootless
+  Podman on the servers. It suits a long-running app such as a web API.
+  Deploys need a public repo or a paid GitHub plan: if
+  `gh repo view --json visibility` says PRIVATE, tell the operator before they
+  choose servers (they may make the repo public, or upgrade).
 
 Write:
 
@@ -165,6 +171,18 @@ When the pull request is open, create a `needs-human` issue (with that form's
 headings): "Turn on the coverage gate". Its exact step: run the harness's
 `scripts/update-guardrails.sh` in this project after merging the skeleton; it
 adds the new project to `quality-gates.toml`, which agents cannot edit.
+
+If the design says it runs on the operator's servers, the skeleton also gets:
+
+- `Containerfile` from `templates/python/Containerfile`, with its `CMD` filled
+  in. The app reads `PORT` and keeps any files under `DATA_DIR` (`/data`); the
+  image's filesystem is read-only.
+- `requirements.txt` added to `.gitignore` (`make container-context` writes it).
+- A second `needs-human` issue, "Turn on deploys", with the exact steps: run the
+  harness's `scripts/setup-deploy.sh --staging deploy@<host> --production
+  deploy@<host> .` in this project, run the server command it prints on each
+  server, and merge the pull request that adds `.github/workflows/deploy.yml`.
+  Agents cannot add workflows or deploy keys themselves.
 
 If the project has a deploy workflow (`.github/workflows/deploy.yml`), the
 skeleton is done only once it is live in staging and production with a clean
