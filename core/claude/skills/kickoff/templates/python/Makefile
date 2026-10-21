@@ -9,7 +9,7 @@ export UV_TOOL_DIR ?= $(CURDIR)/.cache/uv-tools
 export UV_TOOL_BIN_DIR ?= $(CURDIR)/.cache/uv-tools/bin
 PIP_AUDIT ?= pip-audit==2.10.1
 
-.PHONY: help setup lint format test scan check build run
+.PHONY: help setup lint format test scan check build run container-context
 
 help: ## Show the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -39,6 +39,11 @@ check: lint test scan ## Run everything CI runs
 
 build: ## Build the package into dist/
 	$(UV) build
+
+container-context: ## Prepare dist/ and requirements.txt for the Containerfile (the deploy workflow runs this)
+	rm -rf dist
+	$(UV) build --wheel -o dist
+	$(UV) export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt
 
 run: ## Run it locally
 	<the command that starts the app, for example:

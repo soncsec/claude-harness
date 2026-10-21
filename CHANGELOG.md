@@ -3,6 +3,28 @@
 Notable changes to claude-harness. Projects record which version they run in
 `.claude/harness-version`; `scripts/update-guardrails.sh` brings them up to date.
 
+## Unreleased
+
+### Deploys
+
+- Optional deploy path (`docs/deploy.md`): every merge builds a container image,
+  re-audits dependencies and deploys to staging; production waits for the
+  operator's approval in a GitHub environment.
+- Servers run the app with rootless Podman under systemd
+  (`scripts/setup-deploy-host.sh`). CI's per-environment deploy key can only run
+  `deploy-receive.sh`, which accepts only an exact digest of the configured
+  image and rolls back if the health check fails.
+- `scripts/setup-deploy.sh` creates the environments, deploy keys, host keys and
+  workflow for a project. Updates keep `deploy.yml` current only in projects
+  that have it.
+- `/kickoff` adds a `Containerfile` and `make container-context` for projects
+  that run on servers, plus a `needs-human` issue to turn deploys on.
+
+### Fixes
+
+- The Stop hook no longer treats "nothing is waiting on you" as a step left to
+  the operator.
+
 ## 0.1.0 - 2026-10-21
 
 The first release. Tested on Debian 13 with one trial project, built by agents

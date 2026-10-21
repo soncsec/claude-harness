@@ -43,6 +43,10 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   See [docs/setup/github-app.md](docs/setup/github-app.md).
 - **CI on every pull request:** tests, secret scanning, code and dependency
   scans, all required before merge. See [docs/ci.md](docs/ci.md).
+- **Deploys you approve (optional):** each merge builds a container image and
+  ships it to staging; production waits for your approval. Rootless Podman on
+  your servers, a deploy key that can run nothing but the deploy, and automatic
+  rollback. See [docs/deploy.md](docs/deploy.md).
 - **A work queue in GitHub:** issue forms for features, bugs, chores and
   operator tasks, each with testable acceptance criteria, plus the `ready`,
   `needs-human` and `security` labels.

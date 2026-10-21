@@ -287,3 +287,18 @@ def test_version_is_dirty_when_the_template_has_uncommitted_changes(harness_copy
     changed = harness_copy / path
     changed.write_text(changed.read_text() + "\n# local edit\n" if changed.exists() else "x\n")
     assert install_from(harness_copy, project).endswith("-dirty")
+
+
+def test_deploy_workflow_is_not_installed_unless_the_project_opted_in(project):
+    install(project, "--yes")
+    assert not (project / ".github" / "workflows" / "deploy.yml").exists()
+
+
+def test_an_installed_deploy_workflow_is_kept_current(project):
+    workflows = project / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "deploy.yml").write_text("name: deploy\n# old version\n")
+    result = install(project, "--yes", "--force")
+    assert result.returncode == 0, result.stderr
+    template = (REPO / "core" / "deploy" / "deploy.yml").read_text()
+    assert (workflows / "deploy.yml").read_text() == template
