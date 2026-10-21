@@ -24,6 +24,8 @@ Notable changes to claude-harness. Projects record which version they run in
   staging and production jobs on a runner inside your network, installed by
   `scripts/setup-deploy-runner.sh` (pinned, checksum-checked, one repo, one
   label). On public repos, outside contributors' workflows then need approval.
+- Images are built for both `linux/amd64` and `linux/arm64` under one digest,
+  so ARM servers work too (`DEPLOY_PLATFORMS` narrows it).
 
 ### Fixes
 

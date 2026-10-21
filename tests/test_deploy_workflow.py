@@ -58,7 +58,7 @@ def test_every_action_is_pinned_and_checkouts_keep_no_credentials():
 def test_no_expressions_inside_run_blocks():
     # Values reach scripts through env, never pasted into the script (template injection).
     blocks = re.findall(r"run: \|\n((?:\s{10,}.*\n?)+)", TEXT)
-    assert len(blocks) == TEXT.count("run: ") == 5
+    assert len(blocks) == TEXT.count("run: ") == 6
     for block in blocks:
         assert "${{" not in block
 
@@ -101,3 +101,12 @@ def test_deploy_jobs_can_run_inside_the_operators_network():
         assert "runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}" in job(name)
     # Building stays on GitHub's runners: it needs podman, and no secrets of yours.
     assert "runs-on: ubuntu-latest" in job("build")
+
+
+def test_one_image_runs_on_intel_and_arm_servers():
+    # The first live deploy reached an ARM server with an amd64-only image.
+    build = job("build")
+    assert "PLATFORMS: ${{ vars.DEPLOY_PLATFORMS || 'linux/amd64,linux/arm64' }}" in build
+    assert '--platform "$PLATFORMS" --manifest "$image:$SHA"' in build
+    assert "podman manifest push --all" in build
+    assert "qemu-user-static" in build

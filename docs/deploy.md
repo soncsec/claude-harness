@@ -133,3 +133,8 @@ creating deploy keys whenever production cannot require your approval.
   commands it prints. The old keys stop working.
 - **The base image** (`FROM` in the `Containerfile`) is refreshed on every build
   (`--pull=always`). Pin it to a digest if you need builds to be reproducible.
+- **CPU types:** each image is built for Intel/AMD (`linux/amd64`) and ARM
+  (`linux/arm64`) servers under one digest, and each server pulls its own. The
+  ARM half is built under emulation, which is slower. If all your servers are
+  the same kind, build only that one:
+  `gh variable set DEPLOY_PLATFORMS --repo <owner>/<repo> --body linux/arm64`.
