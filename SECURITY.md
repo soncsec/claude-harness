@@ -20,6 +20,11 @@ Helpful details:
 - Harness version (`.claude/harness-version`), Claude Code version and OS
 - Which layers it gets past: permission rules, hooks, sandbox, CI
 
+## Supported versions
+
+Only the latest release gets security fixes. Projects update with
+`scripts/update-guardrails.sh`; `.claude/harness-version` shows what a project runs.
+
 ## What to expect
 
 This is a small project with a single maintainer.
