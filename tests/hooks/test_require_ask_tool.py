@@ -84,6 +84,7 @@ def test_question_reason_says_to_decide_small_things(run_hook):
     result = run_hook("require_ask_tool.py", stop("Done. Should I start the next issue?"))
     reason = result.output["reason"]
     assert "critical design decision" in reason and "keep working" in reason
+    assert "ready issue" not in reason  # agents no longer wait for a `ready` label
 
 
 STEPS_LEFT_IN_PLAIN_TEXT = [

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = (ROOT / "core" / "claude" / "skills" / "watch-pr" / "SKILL.md").read_text()
 FRONTMATTER, BODY = re.match(r"---\n(.*?)\n---\n(.*)", SKILL, re.DOTALL).groups()
 TOOL = (ROOT / "core" / "claude" / "tools" / "watch_pr.py").read_text()
+NEXT_TOOL = (ROOT / "core" / "claude" / "tools" / "next_issue.py").read_text()
 RULES = (ROOT / "core" / "claude" / "rules" / "harness.md").read_text()
 
 
@@ -51,11 +52,22 @@ def test_the_skill_runs_the_installed_tool_in_the_background():
     assert "PushNotification" in BODY
 
 
-def test_after_a_merge_the_next_ready_issue_starts_without_asking():
-    assert "the next `ready` issue" in BODY
-    assert "gh issue list --label ready" in BODY
+def test_after_a_merge_the_next_issue_starts_without_asking():
+    assert "python3 .claude/tools/next_issue.py" in BODY
+    assert "gh issue list --label ready" not in BODY  # the operator never has to label
     assert "even if an older `CLAUDE.md` asks" in BODY  # CLAUDE.md never updates
-    assert "whether to start the next `ready` issue" not in BODY
+    assert "whether to start the next" not in BODY
+
+
+def test_the_skill_says_what_to_do_with_every_next_issue_line():
+    for prefix in set(re.findall(r"^ {4}([a-z-]+): ", NEXT_TOOL.split('"""')[1], re.M)):
+        assert f"`{prefix}:`" in BODY, f"the skill never handles next_issue's `{prefix}:`"
+
+
+def test_the_next_issue_tool_documents_every_line_it_prints():
+    emitted = set(re.findall(r'"([a-z-]+): ', NEXT_TOOL))
+    documented = set(re.findall(r"^ {4}([a-z-]+): ", NEXT_TOOL.split('"""')[1], re.M))
+    assert emitted == documented == {"next", "none", "error"}
 
 
 def test_operator_commands_go_in_a_question():
@@ -68,6 +80,8 @@ def test_project_rules_point_at_the_skill():
 
 def test_project_rules_stop_only_for_design_decisions_and_merges():
     assert "### Critical design decisions" in RULES
-    assert "start the next `ready` issue without asking" in RULES
+    assert "start the next issue without asking" in RULES
+    assert "python3 .claude/tools/next_issue.py" in RULES
+    assert "Never add the `ready` label yourself" in RULES
     assert "Propose a plan first" not in RULES
     assert "put the exact steps in the question" in RULES

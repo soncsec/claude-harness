@@ -101,6 +101,18 @@ simpler to keep the set and add your own beside it.
 resets their color and description on each run. Labels you add on GitHub
 yourself are left alone.
 
+### Choosing which issues agents take
+
+Agents take any open issue opened by the repository's owner, an organization
+member, a collaborator you invited, or the project's own agent. You approve
+their work by merging it, so there is nothing to label. Issues from anyone
+else wait until you add the `ready` label, which needs triage rights. Agents
+never add it themselves, and never take `needs-human` issues.
+
+Invite someone as a collaborator only if you are happy for agents to act on
+their issues. To keep a trusted person's issue away from agents, leave it
+closed or label it `needs-human`.
+
 ### Changing how /kickoff works
 
 Harness updates replace `.claude/skills/kickoff/`, so don't edit it in place.

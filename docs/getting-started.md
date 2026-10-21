@@ -71,17 +71,24 @@ then keeps going on its own; you review the result in its pull requests:
 | 0. Check | Only if something is missing | Nothing; it checks the setup |
 | 1. Define | Goal, users, non-goals, constraints, how sensitive the data is | `README.md`, the top of `CLAUDE.md` |
 | 2. Design | App shape, storage, sign-in, services | `docs/ARCHITECTURE.md`, ADRs in `docs/adr/`, `docs/threat-model.md`, `SECURITY.md` |
-| 3. Plan | Which issues make up the first milestone | `ROADMAP.md`, a milestone and its issues (labeled `ready` once you approve), one pull request |
+| 3. Plan | Which issues make up the first milestone | `ROADMAP.md`, a milestone and the issues you approved, one pull request |
 | 4. Skeleton | Its dependencies (each `uv add` asks you) | A minimal app with tests and `make check`, green in CI |
 
 You never have to check on it. When a kickoff pull request is ready, Claude
 notifies you (a desktop notification, and a phone push if Remote Control is
 on) and watches it; once you merge, it carries on by itself. The same goes for
 every pull request agents open later (the `watch-pr` skill): after each merge,
-the agent starts the next `ready` issue without asking. It stops only for a
+the agent starts the next issue without asking. It stops only for a
 critical design decision (architecture, data, interfaces, security, costs or
 scope) or something only you can do, and then it asks through the question
 prompt, with the exact steps in the question.
+
+Merging is your approval: you never label issues for the agent. It takes any
+open issue opened by you, a collaborator or the agent itself, oldest first in
+the earliest milestone (`.claude/tools/next_issue.py` picks it). On a public
+repo anyone can open an issue, so an issue from anyone else waits until you
+label it `ready`; the agent tells you which ones are waiting. It never takes
+`needs-human` issues: those are steps for you.
 
 After the skeleton is merged, run `scripts/update-guardrails.sh` once in the
 project: it adds the new code to the coverage gate. Kickoff opens a
@@ -124,6 +131,7 @@ git push                                                          # before the r
 | `.claude/rules/harness.md` | The rules every agent follows: workflow, hard rules, when to ask you |
 | `.claude/skills/` | The `/kickoff` and `watch-pr` skills |
 | `.claude/tools/watch_pr.py` | Lets agents wait on a pull request's checks and merge in the background |
+| `.claude/tools/next_issue.py` | Picks the next issue an agent may work on |
 | `.claude/harness-version` | Which harness version is installed |
 | `.github/workflows/`, `.github/harness/` | CI checks and the checkers they run ([ci.md](ci.md)) |
 | `.github/ISSUE_TEMPLATE/` | Issue forms (only the ones you are missing) |

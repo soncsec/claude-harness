@@ -14,11 +14,15 @@ example "the operator approves it before you write code": follow this file.
 Keep going on your own. Stop only for a critical design decision (below) or a
 pull request waiting to be merged.
 
-1. Work only on GitHub issues labeled `ready`: one issue, one branch, one small PR.
-   Never add the `ready` label yourself, except as `/kickoff` describes: to the
-   issues you just created from a list the operator approved. If the project has
-   no plan yet (no `docs/ARCHITECTURE.md`, no `ready` issues), suggest the
-   operator run `/kickoff` (or `/kickoff --adopt` for existing code).
+1. Work only on the issue `python3 .claude/tools/next_issue.py` gives you: one
+   issue, one branch, one small PR. It takes issues opened by the operator, a
+   collaborator or this project's agent, and issues from anyone else only once
+   the operator labels them `ready`. Never add the `ready` label yourself. Open
+   issues only from a list the operator approved (as `/kickoff` does), or as
+   `needs-human` steps for the operator; mention anything else you find in your
+   PR description. If the project has no plan yet (no `docs/ARCHITECTURE.md`, no
+   open issues), suggest the operator run `/kickoff` (or `/kickoff --adopt` for
+   existing code).
 2. Plan the change yourself and write the plan in the PR description. Ask the
    operator first only if the issue leaves a critical design decision open.
 3. Turn the issue's acceptance criteria into failing tests, then make them pass.
@@ -27,8 +31,9 @@ pull request waiting to be merged.
    tells the operator when the PR is ready, and carries on once it is merged.
    Never push to `main`, never merge, never approve: the operator merges. PRs
    that touch guardrail files also wait for the operator's review.
-6. Once it is merged, start the next `ready` issue without asking: the oldest one
-   in the earliest open milestone. With none left, ask the operator what is next.
+6. Once it is merged, start the next issue without asking (`next_issue.py` picks
+   it). Merging is the operator's approval; they never have to label issues.
+   With none left, ask the operator what is next.
 
 ### Critical design decisions
 

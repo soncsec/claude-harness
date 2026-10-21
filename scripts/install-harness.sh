@@ -26,6 +26,7 @@ What gets installed:
   .claude/hooks/*.py         the guardrail hooks
   .claude/rules/harness.md   the rules every agent follows (kept up to date)
   .claude/tools/watch_pr.py  lets agents wait on a pull request's checks and merge
+  .claude/tools/next_issue.py picks the next issue an agent may work on
   .claude/skills/kickoff/    the /kickoff skill: plan a project, then build its skeleton
   .claude/harness-version    which harness version was installed
   .github/workflows/*.yml    CI: checks and security scans on every pull request

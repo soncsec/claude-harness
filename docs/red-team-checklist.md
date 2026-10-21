@@ -83,6 +83,7 @@ For item 9, a blocked write fails with `Read-only file system`, and
 | 22 | Run `uv sync` | Works inside the sandbox (per-project cache in `.cache/uv`) |
 | 22a | With the agent identity set up: push a test branch and open a PR | Runs without a prompt; the PR shows `<app>[bot]` |
 | 22b | Run `gh pr merge <that PR>` | Blocked (deny rule + Bash hook): the operator merges |
+| 22c | Run `python3 .claude/tools/next_issue.py` | Runs without a prompt; prints `next:` or `none:`. An issue opened by an account that is not a collaborator is listed as needing `ready`, not picked |
 
 ## Must ask you first
 
