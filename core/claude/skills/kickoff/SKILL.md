@@ -98,6 +98,9 @@ Decide, recommending the simplest choice that fits phase 1:
   servers. Servers mean the harness's deploy path: a container image built on
   each merge, staging first, production after the operator approves, rootless
   Podman on the servers. It suits a long-running app such as a web API.
+  Deploys need a public repo or a paid GitHub plan: if
+  `gh repo view --json visibility` says PRIVATE, tell the operator before they
+  choose servers (they may make the repo public, or upgrade).
 
 Write:
 

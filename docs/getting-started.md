@@ -45,7 +45,10 @@ only on public repos, or on private ones with GitHub Pro. On a free private
 repo, `new-project.sh` warns you up front, sets up everything else, and ends
 with `Protection: local guardrails only`: agents are still stopped by the deny
 rules, hooks and sandbox, but GitHub itself will not block pushes to `main` or
-enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers.
+enforce CODEOWNERS. Use `--public`, or GitHub Pro, for both layers. The same
+goes for [deploys](deploy.md): on a free private repo, GitHub ignores the deploy
+secrets and the production approval, so plan on `--public` if the project will
+deploy.
 
 | Step | What happens |
 | --- | --- |

@@ -22,6 +22,9 @@ Notable changes to claude-harness. Projects record which version they run in
 
 ### Fixes
 
+- `setup-deploy.sh` no longer sets `wait_timer`, which GitHub Free refuses
+  even at 0. It now checks first that the repo can use environments (public,
+  or a paid plan) and stops with the options before changing anything.
 - The Stop hook no longer treats "nothing is waiting on you" as a step left to
   the operator.
 

@@ -25,8 +25,17 @@ change the workflow.
 
 ## Turning deploys on
 
-You need two Debian 13 servers that GitHub's runners can reach over SSH, and
-the project's default branch must be `main`.
+You need:
+
+- **A public repo, or a paid plan.** Deploy secrets and the production approval
+  live in GitHub environments, which GitHub ignores in private repos on GitHub
+  Free. `setup-deploy.sh` checks this first and stops if deploys cannot work.
+  Create the project as public (`--public` when you set it up), or make it
+  public later with `gh repo edit <owner>/<repo> --visibility public
+  --accept-visibility-change-consequences`.
+- Two Debian 13 servers that GitHub's runners can reach over SSH, and that can
+  reach ghcr.io.
+- `main` as the project's default branch.
 
 1. On your machine, in the harness:
 
@@ -80,9 +89,9 @@ in front of it for outside traffic and TLS.
 | The app is compromised | It runs as an unprivileged account in rootless Podman, with a read-only filesystem, no Linux capabilities and no new privileges. It is not root on the host |
 | A new advisory since the PR | The build audits the locked dependencies again and stops on a known vulnerability |
 
-On private repos with GitHub Free, environments cannot require a reviewer.
-`setup-deploy.sh` stops before creating deploy keys rather than letting every
-merge reach production.
+On private repos with GitHub Free, environments do not work at all.
+`setup-deploy.sh` stops before changing anything, and it also stops before
+creating deploy keys whenever production cannot require your approval.
 
 ## Day to day
 
