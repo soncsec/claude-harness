@@ -32,7 +32,7 @@ from _policy import read_hook_input  # noqa: E402
 REASON = (
     "Your last message asks the operator something in plain text. The UI does not flag "
     "plain-text questions, so they may never see it. If it is a choice you can make "
-    "yourself (such as whether to carry on or start the next ready issue), don't ask: "
+    "yourself (such as whether to carry on or start the next issue), don't ask: "
     "make it, say in one line what you chose, and keep working. Ask the operator only "
     "about a critical design decision or something you cannot do yourself, and then "
     "with the AskUserQuestion tool (2-4 options, recommended option first). If it was "

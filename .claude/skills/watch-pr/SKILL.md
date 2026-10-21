@@ -43,15 +43,15 @@ On `timeout:`, run the same watch again without telling anyone.
   operator with AskUserQuestion to run that command in this project (put it in
   the question, with options "Done" and "Later"), and wait for their answer.
   Then carry on without asking: the next step of the task you were given or,
-  with nothing left, the next `ready` issue (see below).
-- **The next `ready` issue:** list them with
-  `gh issue list --label ready --state open --json number,title,milestone,createdAt`
-  and take the oldest one in the earliest open milestone, skipping any that
-  already has an open pull request. Work it as `CLAUDE.md` describes, planning
-  it yourself: don't wait for a plan approval, even if an older `CLAUDE.md` asks
-  for one. Ask the operator only about a critical design decision (one that is
-  hard to undo, or changes the architecture, data, interfaces, security, costs
-  or scope). With no `ready` issue left, send a PushNotification and ask with
-  AskUserQuestion what comes next.
+  with nothing left, the next issue (see below).
+- **The next issue:** run `python3 .claude/tools/next_issue.py`. On `next:`,
+  work that issue as `.claude/rules/harness.md` describes, planning it
+  yourself: don't wait for a plan approval or a `ready` label,
+  even if an older `CLAUDE.md` asks for one. The merge was the operator's approval. Ask the
+  operator only about a critical design decision (one that is hard to undo, or
+  changes the architecture, data, interfaces, security, costs or scope). On
+  `none:`, send a PushNotification and ask with AskUserQuestion what comes
+  next, naming any issues it lists as waiting for the `ready` label. On
+  `error:`, tell the operator with AskUserQuestion, with options.
 - `closed:` it was closed without merging. Ask the operator what happened, with
   options: reopen and change it, or drop the work.
