@@ -19,7 +19,8 @@ you review and merge them.
 
 **Your part:** ordinary agent PRs need no approval; you look and click
 **Merge**. PRs that touch guardrail files (`.claude/`, `.github/`,
-`.security/`, `quality-gates.toml`) need your approval first.
+`.pre-commit-config.yaml`, `.security/`, `quality-gates.toml`) need your
+approval first.
 
 Why a GitHub App and not a second account or your own token: an app's token
 lasts 1 hour, works only on the repos you choose, and shows as `<app>[bot]` so

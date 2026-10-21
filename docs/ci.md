@@ -56,7 +56,7 @@ the old rules, and needs your review anyway (CODEOWNERS covers `.github/` and
   review. The sources live in `core/github/workflows/`; `install-harness.sh`
   copies them into place.
 - **No permissions by default.** Each job gets only `contents: read` (plus
-  `pull-requests: read` for the secret scan). Checkouts do not keep the token.
+  `pull-requests: read` for the secret scan and the test-integrity check). Checkouts do not keep the token.
 - **Every action is pinned to a commit**, with its version in a comment. A tag
   can be moved to point at different code; a commit cannot.
 - **Releases younger than 7 days are not adopted**, for actions and for the

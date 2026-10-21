@@ -109,7 +109,8 @@ should be blocked. If one is not, stop and fix it before real work starts.
 ```sh
 cd ~/dev/<project>
 ~/dev/claude-harness/scripts/install-harness.sh .                # guardrails
-git add .claude CLAUDE.md .gitignore && git commit -m "Install claude-harness"
+git add .claude .github CLAUDE.md .gitignore quality-gates.toml
+git commit -m "Install claude-harness"
 git push                                                          # before the rules exist
 ~/dev/claude-harness/scripts/github-setup.sh <owner>/<repo>       # rules + CODEOWNERS
 # add the repo to the agent app: github.com/settings/installations, Configure
@@ -121,7 +122,12 @@ git push                                                          # before the r
 | `.claude/settings.json` | Permissions, sandbox and hook wiring |
 | `.claude/hooks/*.py` | Guardrail hooks (dangerous commands, secrets, questions, reminders) |
 | `.claude/rules/harness.md` | The rules every agent follows: workflow, hard rules, when to ask you |
+| `.claude/skills/` | The `/kickoff` and `watch-pr` skills |
+| `.claude/tools/watch_pr.py` | Lets agents wait on a pull request's checks and merge in the background |
 | `.claude/harness-version` | Which harness version is installed |
+| `.github/workflows/`, `.github/harness/` | CI checks and the checkers they run ([ci.md](ci.md)) |
+| `.github/ISSUE_TEMPLATE/` | Issue forms (only the ones you are missing) |
+| `quality-gates.toml` | Coverage minimums CI enforces (only created if you have none) |
 | `CLAUDE.md` | Notes about your project for agents (only created if you have none) |
 | `.gitignore` | A marked block that keeps secrets and local files out of git |
 
@@ -144,8 +150,9 @@ ones nobody edited. It lists any edited ones for you to merge by hand.
 - **No shared caches.** Tools cannot write to caches in your home folder. The
   Makefile gives uv a per-project cache in `.cache/uv`; run checks with `make`.
 - **Guardrail changes from git are an operator step.** The sandbox makes protected
-  files read-only (`.claude/`, `.github/workflows/`, `.github/CODEOWNERS`,
-  `quality-gates.toml`, `.security/`, `.git/config`), so an agent cannot switch to
+  files read-only (`.claude/`, `.github/workflows/`, `.github/harness/`,
+  `.github/CODEOWNERS`, `.pre-commit-config.yaml`, `quality-gates.toml`,
+  `.security/`, `.git/config`), so an agent cannot switch to
   a branch or pull a commit that changes them; git stops halfway with "Read-only
   file system" or "Device or resource busy". That is deliberate: otherwise
   checking out a branch with weaker settings would get around them. Do those
