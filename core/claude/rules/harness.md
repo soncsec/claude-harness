@@ -81,7 +81,9 @@ trade-offs, which issue comes next. Pick the simplest option that fits
   "Done" and "Later". Never leave steps in plain text at the end of a reply.
 - Subagents cannot ask the operator: return the question to the main agent.
 - Anything the operator must do later becomes a GitHub issue labeled `needs-human`
-  with exact steps.
+  with exact steps. Once the operator says it is done, or you can see it is (for
+  example, the file it changes is updated), close it with a one-line comment
+  saying how you know, and stop reminding them.
 - `gh issue create` skips the issue forms, so write the body with the matching
   form's headings from `.github/ISSUE_TEMPLATE/` (`### Goal`,
   `### Acceptance criteria`, ...), and add the form's label.

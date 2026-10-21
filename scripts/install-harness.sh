@@ -360,9 +360,12 @@ main() {
     warn "$TARGET is not a git repository. Run 'git init' there so you can review and commit the install."
   fi
 
-  # Read the version before installing anything: when the harness installs into
-  # itself, the freshly installed files would otherwise mark it "-dirty".
-  HARNESS_VERSION=$(git -C "$HARNESS_DIR" describe --always --dirty 2>/dev/null || echo unknown)
+  # "-dirty" means the template itself (core/ or scripts/) has uncommitted
+  # changes. Other edits, such as the harness's own installed .claude/, don't count.
+  HARNESS_VERSION=$(git -C "$HARNESS_DIR" describe --always 2>/dev/null || echo unknown)
+  if [[ $HARNESS_VERSION != unknown && -n $(git -C "$HARNESS_DIR" status --porcelain -- core scripts 2>/dev/null) ]]; then
+    HARNESS_VERSION+="-dirty"
+  fi
   build_plan
   print_plan
 
