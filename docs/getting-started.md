@@ -103,6 +103,12 @@ without rewriting what is there.
 See [customizing.md](customizing.md): which network domains your project needs,
 what to allow without prompting, and how to add your own protected files.
 
+### Deploys (optional)
+
+If the project runs on your servers, turn on deploys once the skeleton is
+merged: [deploy.md](deploy.md). Kickoff opens a `needs-human` issue with the
+exact steps.
+
 ## 4. Prove it works (once per harness version)
 
 Start a new Claude Code session in the project and walk through

@@ -34,9 +34,9 @@ setup: ## Install Python and the dev tools (uses uv.lock)
 lint: ## Check code style, likely bugs, security patterns and shell scripts
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
-	$(UV) run shellcheck -x scripts/*.sh scripts/lib/*.sh
+	$(UV) run shellcheck -x scripts/*.sh scripts/lib/*.sh core/deploy/host/*.sh
 	$(UV) tool run --from $(ZIZMOR) zizmor --offline --min-severity medium \
-		core/github/workflows/*.yml $(wildcard .github/workflows/*.yml)
+		core/github/workflows/*.yml core/deploy/*.yml $(wildcard .github/workflows/*.yml)
 
 scan: ## Check locked dependencies for known vulnerabilities (CI also scans secrets and code)
 	@mkdir -p .cache

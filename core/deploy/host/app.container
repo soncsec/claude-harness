@@ -1,0 +1,30 @@
+# Installed by claude-harness (scripts/setup-deploy-host.sh); runs {{APP}} with
+# rootless Podman under the deploy user. deploy-receive.sh points
+# localhost/{{APP}}:current at each new release and restarts this unit.
+[Unit]
+Description={{APP}} (deployed by claude-harness)
+
+[Container]
+Image=localhost/{{APP}}:current
+Pull=never
+ContainerName={{APP}}
+# Reachable from this host only; put a reverse proxy in front for the outside.
+PublishPort=127.0.0.1:{{PORT}}:{{PORT}}
+# Settings and secrets for the app: edit this file on the server, never in git.
+EnvironmentFile=%h/{{APP}}.env
+Environment=PORT={{PORT}} DATA_DIR=/data
+# The only writable place: keep databases and uploads under /data.
+Volume=%h/{{APP}}-data:/data:Z
+# The deploy user owns /data on the host and is uid 10001 (the image's app user) inside.
+UserNS=keep-id:uid=10001,gid=10001
+ReadOnly=true
+Tmpfs=/tmp
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

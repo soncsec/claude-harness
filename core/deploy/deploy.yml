@@ -1,0 +1,111 @@
+# Installed by claude-harness (source: core/deploy/deploy.yml) when the
+# operator runs scripts/setup-deploy.sh. See docs/deploy.md in the harness.
+#
+# Ships main: builds a container image, re-checks dependencies, deploys to
+# staging, then to production once the operator approves the "production"
+# environment in GitHub. Agents cannot approve deployments.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+# No permissions by default; each job asks only for what it needs.
+permissions: {}
+
+# One deploy at a time, and never cancel one halfway through.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write  # push the image to ghcr.io
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: pip-audit uv.lock (advisories published since the pull request was checked)
+        run: |
+          if [ -f uv.lock ]; then
+            uv export --frozen --format requirements-txt --no-emit-project -o "$RUNNER_TEMP/req.txt"
+            uvx --from pip-audit==2.10.1 pip-audit -r "$RUNNER_TEMP/req.txt" \
+              --disable-pip --require-hashes --strict
+          fi
+      - name: prepare the build context (make container-context)
+        run: |
+          if make -n container-context >/dev/null 2>&1; then
+            make container-context
+          fi
+      - name: build and push the image
+        id: push
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          image="ghcr.io/${REPO,,}"
+          printf '%s' "$REGISTRY_TOKEN" | podman login ghcr.io -u "$ACTOR" --password-stdin
+          podman build --pull=always -f Containerfile -t "$image:$SHA" \
+            --label "org.opencontainers.image.source=https://github.com/$REPO" \
+            --label "org.opencontainers.image.revision=$SHA" .
+          podman push --digestfile "$RUNNER_TEMP/digest" "$image:$SHA"
+          podman logout ghcr.io
+          echo "image=$image@$(cat "$RUNNER_TEMP/digest")" >> "$GITHUB_OUTPUT"
+
+  staging:
+    name: staging
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    permissions: {}
+    steps:
+      - name: deploy to staging (the server checks the image and rolls back if unhealthy)
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
+          ssh -i "$RUNNER_TEMP/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" \
+            "$DEPLOY_HOST" "$IMAGE"
+
+  production:
+    name: production
+    needs: [build, staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production  # waits for the operator's approval
+    permissions: {}
+    steps:
+      - name: deploy to production (the server checks the image and rolls back if unhealthy)
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
+          ssh -i "$RUNNER_TEMP/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" \
+            "$DEPLOY_HOST" "$IMAGE"

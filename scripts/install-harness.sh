@@ -150,6 +150,11 @@ build_plan() {
   for workflow in "$CORE"/github/workflows/*.yml; do
     plan_file "$workflow" ".github/workflows/$(basename "$workflow")"
   done
+  # Deploys are opt-in (scripts/setup-deploy.sh): keep the workflow current only
+  # where it is already installed.
+  if [[ -f $TARGET/.github/workflows/deploy.yml ]]; then
+    plan_file "$CORE/deploy/deploy.yml" ".github/workflows/deploy.yml"
+  fi
   for checker in "$CORE"/github/harness/*.py; do
     plan_file "$checker" ".github/harness/$(basename "$checker")"
   done
