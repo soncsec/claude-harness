@@ -77,6 +77,11 @@ WAITING_PHRASES = re.compile(
     r"|waiting (?:for|on) you|over to you)\b",
     re.IGNORECASE,
 )
+# "Nothing is waiting on you" says the opposite of a step left to the operator.
+NOT_WAITING = re.compile(
+    r"\b(?:nothing|not|no longer|isn['’]t|aren['’]t)\b[^.!?\n]{0,30}?\bwaiting (?:for|on) you\b",
+    re.IGNORECASE,
+)
 # The agent says it is watching, so the session will wake up by itself.
 WATCHING = re.compile(r"\bwatching\b", re.IGNORECASE)
 # What a pull request watcher covers.
@@ -160,7 +165,11 @@ def asks_operator(text: str) -> bool:
 
 def leaves_operator_waiting(text: str) -> bool:
     body = prose(text)
-    return bool(WAITING_PHRASES.search(body)) and not WATCHING.search(body)
+    if WATCHING.search(body):
+        return False
+    # Drop only the negated phrase, so "Nothing is waiting on you, but #5 is
+    # ready to merge" still counts.
+    return any(WAITING_PHRASES.search(NOT_WAITING.sub(" ", s)) for s in sentences(body))
 
 
 def leaves_operator_steps(text: str) -> bool:
