@@ -4,7 +4,8 @@ A secure, repeatable harness for building software with Claude Code: guardrails,
 a test-first workflow, security scanning and a gated path from a pull request to
 production.
 
-**Status:** early development. Not ready for use yet.
+**Status:** 0.1.0, the first release. Tested on Debian 13 with one trial
+project; expect changes as it meets more projects. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Quickstart (Debian 13)
 
