@@ -53,7 +53,7 @@ def test_kickoff_keeps_going_between_phases():
     assert "Don't start the next phase until it is approved" not in BODY
     assert "Approve, then commit" not in BODY
     assert "plan, approval, tests" not in BODY
-    assert "start the first `ready` feature issue without asking" in BODY
+    assert "start the next issue without asking" in BODY
 
 
 def test_every_template_the_skill_names_exists():
@@ -81,9 +81,12 @@ def test_issue_headings_match_the_feature_form():
         )
 
 
-def test_ready_label_only_for_approved_issues_it_created():
-    assert "exactly the issues you just created from the approved list" in BODY
-    assert "Never label any other issue" in BODY
+def test_approving_the_issue_list_is_enough():
+    # The operator approves the list once; nobody has to label the issues afterwards.
+    assert "Create exactly the approved issues, nothing more" in BODY
+    assert "Never add the `ready`" in BODY
+    assert "--add-label ready" not in BODY
+    assert "I'll mark them" not in BODY
 
 
 def test_dependencies_go_through_uv_add():

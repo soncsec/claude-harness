@@ -2,7 +2,7 @@
   {
     "name": "ready",
     "color": "0e8a16",
-    "description": "Agents may work on this issue"
+    "description": "Lets agents work on an issue someone outside the team opened"
   },
   {
     "name": "needs-human",

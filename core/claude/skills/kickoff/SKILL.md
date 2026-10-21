@@ -121,9 +121,9 @@ Commit these files by name.
      a green CI run.
    - Then the features that make the milestone true, 3 to 8 issues.
    - One issue per Planned threat, labeled `security`.
-3. Show the list (title, one line each, labels) and ask: "Create them and mark
-   them ready (Recommended)" / "Change the list" / "Create them, I'll mark them
-   ready myself".
+3. Show the list (title, one line each, labels) and ask: "Create them
+   (Recommended)" / "Change the list". Approving the list is all the operator
+   does: agents take issues this project's agent opened without a `ready` label.
 4. Once approved:
    - Create the milestone: `gh api repos/{owner}/{repo}/milestones -f title="M1: <name>" -f description="<one sentence>"`.
    - Create each issue with `gh issue create --title ... --label ... --milestone "M1: <name>" --body-file <file>`.
@@ -132,10 +132,8 @@ Commit these files by name.
      `### Acceptance criteria`, `### Security impact`, `### Out of scope`).
      Acceptance criteria are testable statements; they become the first tests.
      End the body with `Approved by the operator during kickoff on <date>.`
-   - Unless the operator chose to do it themselves, add the `ready` label to
-     **exactly the issues you just created from the approved list**
-     (`gh issue edit <n> --add-label ready`). Never label any other issue
-     `ready`, now or later.
+   - Create exactly the approved issues, nothing more. Never add the `ready`
+     label: it is for the operator to let in issues other people opened.
 5. Commit `ROADMAP.md`, push the branch and open a pull request: "Kickoff:
    definition, design and first milestone", listing the docs and linking the
    milestone. Then watch it (`.claude/skills/watch-pr/SKILL.md`): the operator
@@ -174,8 +172,7 @@ security scan. Until then, done means CI is green and the operator has merged.
 
 Watch the skeleton pull request (`.claude/skills/watch-pr/SKILL.md`). Once it
 is merged, give a short summary (what exists now, the milestone link), then
-start the first `ready` feature issue without asking, as the watch-pr skill's
-step 3 describes.
+start the next issue without asking, as the watch-pr skill's step 3 describes.
 
 ## Adopting an existing project
 

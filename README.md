@@ -26,8 +26,10 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   only the questions that shape it. See [docs/getting-started.md](docs/getting-started.md).
 - **Guardrails:** permissions, an OS-level sandbox and hooks that block dangerous
   commands, keep agents away from secrets and stop them editing their own rules.
-- **Agents that keep going:** they plan and build each `ready` issue on their
-  own, and stop only for a critical design decision or a pull request to merge.
+- **Agents that keep going:** they plan and build each issue on their own, and
+  stop only for a critical design decision or a pull request to merge. Merging
+  is your approval; there is nothing to label. Issues from outside your team
+  wait until you label them `ready`.
 - **Questions you will not miss:** agents ask with the question prompt, never in
   plain text, and so does anything they need you to do, such as running a
   command.
