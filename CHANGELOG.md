@@ -22,6 +22,9 @@ Notable changes to claude-harness. Projects record which version they run in
 
 ### Fixes
 
+- `github-setup.sh` turns on Dependabot alerts on public repos, which turns on
+  the dependency graph that the `dependency-review` check needs. GitHub leaves
+  it off when a private repo is made public, so that check failed.
 - `setup-deploy.sh` no longer sets `wait_timer`, which GitHub Free refuses
   even at 0. It now checks first that the repo can use environments (public,
   or a paid plan) and stops with the options before changing anything.

@@ -24,7 +24,9 @@ What it applies:
                          (core/github/ruleset-tags.json)
   repo settings          Auto-merge off; merged branches deleted; the Actions
                          token is read-only and cannot approve pull requests;
-                         private vulnerability reporting on (public repos).
+                         private vulnerability reporting and Dependabot alerts
+                         on (public repos; the alerts turn on the dependency
+                         graph that the dependency-review check needs).
   labels                 ready, needs-human, security and the issue-form kinds
                          (core/github/labels.json). Existing ones are updated.
   .github/CODEOWNERS     Created in the current git repo if missing, from
@@ -117,6 +119,11 @@ apply_settings() {
     log "Private vulnerability reporting: on"
     run gh api -X PUT "repos/$REPO/private-vulnerability-reporting" --silent \
       || log "warning: could not turn on private vulnerability reporting"
+    # Turns on the dependency graph too, which CI's dependency-review check
+    # needs. GitHub leaves it off when a private repo is made public.
+    log "Dependabot alerts and the dependency graph: on"
+    run gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent \
+      || log "warning: could not turn on Dependabot alerts (dependency-review will fail)"
   fi
 }
 
