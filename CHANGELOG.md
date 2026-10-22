@@ -3,7 +3,10 @@
 Notable changes to claude-harness. Projects record which version they run in
 `.claude/harness-version`; `scripts/update-guardrails.sh` brings them up to date.
 
-## Unreleased
+## 0.3.0 - 2026-10-21
+
+The agent can use its GitHub API token but never read it. Upgrading needs one
+step per project (below).
 
 ### Security
 
