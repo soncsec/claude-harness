@@ -82,6 +82,7 @@ def setup(tmp_path: Path) -> dict:
         "GIT_COMMITTER_NAME": "Test",
         "GIT_COMMITTER_EMAIL": "test@example.com",
         "CLAUDE_HARNESS_CONFIG_DIR": str(empty_config),  # no agent app: step 5 skipped
+        "CLAUDE_HARNESS_BIN_DIR": str(tmp_path / "bin-links"),  # never the real ~/.local/bin
     }
     return {"env": env, "bare": bare, "project": project, "log": tmp_path / "gh.log"}
 
@@ -128,6 +129,8 @@ def test_new_empty_repo_end_to_end(setup):
         assert f"label create {label} --repo owner/repo" in calls
     assert "Done in" in result.stdout
     assert "agent identity step" in result.stdout  # skipped: no app configured
+    # No agent identity, so no masked API token: plain claude.
+    assert f"cd {setup['project']} && claude, then type /kickoff" in result.stdout
 
 
 def test_repo_with_history_gets_a_pull_request(setup):
@@ -283,6 +286,8 @@ def test_identity_step_waits_for_the_repo_then_wires_the_project(setup, tmp_path
         assert "https://github.com/settings/installations/12345" in result.stdout
         assert "Got it" in result.stdout
         assert "Done in" in result.stdout
+        # With the agent identity wired, sessions start with hclaude (the token is masked).
+        assert f"cd {setup['project']} && hclaude" in result.stdout
 
         settings = setup["project"] / ".claude" / "settings.local.json"
         data = json.loads(settings.read_text())

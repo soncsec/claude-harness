@@ -51,6 +51,10 @@ def test_blocks_writes_to_guardrail_files(run_hook, tool, path):
         ("Read", "~/.docker/config.json"),
         ("Read", "~/.config/claude-harness/agent-app.pem"),
         ("Glob", "~/.config/claude-harness"),
+        # The Read tool is not sandboxed: it would show the real, unmasked token.
+        ("Read", "~/.cache/claude-harness/owner/repo/hosts.yml"),
+        ("Grep", "~/.cache/claude-harness"),
+        ("Edit", "~/.cache/claude-harness/owner/repo/git-credential"),
     ],
 )
 def test_blocks_secret_files(run_hook, tool, path):

@@ -7,11 +7,15 @@ session starts by reminding the operator.
 
 Prints nothing (and never fails the session) when the repo has no GitHub
 remote, `gh` is missing or not logged in, or GitHub is slow.
+
+It also warns when the session acts as the agent's GitHub App but was started
+with plain `claude` instead of `hclaude`, so the agent can read its API token.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -55,7 +59,19 @@ def age(created_at: str) -> str:
     return f"waiting {days} day{'s' if days != 1 else ''}"
 
 
+def unmasked_token_warning() -> str | None:
+    """A reminder when this session can read the agent's GitHub API token."""
+    acts_as_agent = "claude-harness" in os.environ.get("GH_CONFIG_DIR", "")
+    if not acts_as_agent or os.environ.get("CLAUDE_HARNESS_MASKED") == "1":
+        return None
+    return (
+        "- This session can read its GitHub API token. Start sessions here with "
+        "`hclaude` instead of `claude` to hide it (the harness's docs/setup/github-app.md)."
+    )
+
+
 def main() -> int:
+    warning = unmasked_token_warning()
     issues = gh_json([
         "issue", "list", "--label", "needs-human", "--state", "open",
         "--limit", str(MAX_ITEMS), "--json", "number,title,url,createdAt",
@@ -66,10 +82,12 @@ def main() -> int:
     ])  # fmt: skip
     prs = [p for p in prs if not p.get("isDraft") and p.get("reviewDecision") != "APPROVED"]
 
-    if not issues and not prs:
+    if not issues and not prs and not warning:
         return 0
 
     lines = ["Operator reminders from GitHub (mention these in your first reply):"]
+    if warning:
+        lines.append(warning)
     for item in issues:
         lines.append(
             f"- needs-human #{item.get('number')}: {item.get('title')} "

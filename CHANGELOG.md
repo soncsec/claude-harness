@@ -5,6 +5,21 @@ Notable changes to claude-harness. Projects record which version they run in
 
 ## Unreleased
 
+### Security
+
+- The agent's GitHub API token is hidden from it. Sessions started with
+  `hclaude` (linked by `agent-token.sh configure`) use Claude Code's credential
+  masking: inside the sandbox `gh` sees a stand-in, and the proxy swaps in the
+  real token only on requests to `api.github.com`. Each project now has two
+  tokens: the masked API token (pull requests, issues, CI; read-only on code)
+  and a push-only token for `git`, which stays readable because GitHub's git
+  server only accepts HTTP Basic authentication. The Read and Edit tools and the
+  hooks are denied the token folder in every session, and plain `claude`
+  sessions are reminded to use `hclaude`.
+- **Upgrading:** run `scripts/agent-token.sh configure <project>` again for
+  every configured project, then restart its sessions with `hclaude`. Until
+  then git uses the API token, which can no longer push.
+
 ### Fixes
 
 - The Bash guard reads two more kinds of text as data, not commands: heredocs

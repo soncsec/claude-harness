@@ -60,8 +60,9 @@ deploy.
 | Issues | Feature, Bug, Chore and Needs-human forms, with blank issues turned off, and the labels agents use: `ready`, `needs-human`, `security`. |
 | Agent identity | If you set up the app: it opens the app's settings, waits while you tick the new repo, then wires the project's own token. |
 
-It prints how long it took and what to do next. Then `cd ~/dev/<name> && claude`
-and type `/kickoff`.
+It prints how long it took and what to do next. Then `cd ~/dev/<name> && hclaude`
+and type `/kickoff`. (`hclaude` is `claude` with the agent's GitHub API token
+hidden from it; plain `claude` works too, if you skipped the agent identity.)
 
 ### Kickoff: plan the project with Claude
 

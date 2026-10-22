@@ -160,10 +160,18 @@ app_jwt() {
   JWT=$(make_jwt) || die "could not sign with $KEY_FILE; is it the app's private key?"
 }
 
+# Every project gets two tokens, each narrowed to its one repo:
+#   the API token (gh: pull requests, issues, CI), which hclaude sessions mask, so
+#     the agent can use it but never read it;
+#   the push token (git), which can only push code. git sends it base64-encoded
+#     (HTTP Basic), which no masking proxy can swap, so it stays readable.
+API_PERMISSIONS='{"metadata":"read","contents":"read","pull_requests":"write","issues":"write","checks":"read","statuses":"read","actions":"read"}'
+PUSH_PERMISSIONS='{"metadata":"read","contents":"write"}'
+
 # Mint a token for one repo, narrowed to that repo and these permissions even if
 # the app was given more. Sets TOKEN and EXPIRES_AT; returns 1 on failure.
 mint_token() {
-  local repo=$1 response status installation body
+  local repo=$1 permissions=${2:-$API_PERMISSIONS} response status installation body
   app_jwt
   response=$(github_api GET "/repos/$repo/installation" "$JWT") \
     || fail "could not reach GitHub (curl failed; see the message above)" || return 1
@@ -175,7 +183,7 @@ mint_token() {
   [[ $status == 200 ]] || { fail "GitHub refused the installation lookup for $repo (HTTP $status): ${response%$'\n'*}"; return 1; }
   installation=$(printf '%s' "${response%$'\n'*}" | json_field id)
 
-  body=$(printf '{"repositories":["%s"],"permissions":{"metadata":"read","contents":"write","pull_requests":"write","issues":"write","checks":"read","statuses":"read","actions":"read"}}' "${repo#*/}")
+  body=$(printf '{"repositories":["%s"],"permissions":%s}' "${repo#*/}" "$permissions")
   response=$(github_api POST "/app/installations/$installation/access_tokens" "$JWT" "$body") \
     || fail "could not reach GitHub to mint a token (curl failed; see the message above)" || return 1
   status=${response##*$'\n'}
@@ -206,36 +214,85 @@ bot_identity() {
 
 # --- Token files -----------------------------------------------------------------
 
-# The token currently on disk in a folder, if any (to revoke it once replaced).
+# The tokens currently on disk in a folder, if any (to revoke them once replaced).
 current_token() {
   [[ -f $1/hosts.yml ]] || return 0
   sed -n 's/^ *oauth_token: *//p' "$1/hosts.yml" | head -n1
 }
-
-# Write TOKEN where gh (and git, through gh) read it on every command, so a
-# running Claude session picks up each renewal without restarting.
-write_token_files() {
-  local dir=$1 tmp
-  ( umask 077; mkdir -p "$dir" )
-  chmod 700 "$TOKEN_ROOT" "$dir" 2>/dev/null || true
-  tmp=$(umask 077; mktemp "$dir/.hosts.XXXXXX")
-  printf 'github.com:\n    oauth_token: %s\n    user: x-access-token\n    git_protocol: https\n' \
-    "$TOKEN" > "$tmp"
-  mv -f "$tmp" "$dir/hosts.yml"
-  tmp=$(umask 077; mktemp "$dir/.expires.XXXXXX")
-  printf '%s\n' "$EXPIRES_AT" > "$tmp"
-  mv -f "$tmp" "$dir/expires_at"
+current_push_token() {
+  [[ -f $1/git-credential ]] || return 0
+  sed -n 's/^password=//p' "$1/git-credential" | head -n1
 }
 
-# Mint a fresh token for one repo, store it, and revoke the one it replaces.
+# Write a file atomically, readable by the owner only.
+write_private() {
+  local target=$1 tmp
+  tmp=$(umask 077; mktemp "$(dirname "$target")/.tmp.XXXXXX")
+  cat > "$tmp"
+  mv -f "$tmp" "$target"
+}
+
+# Write the tokens where gh and git read them on every command, so a running
+# Claude session picks up each renewal without restarting.
+write_token_files() {
+  local dir=$1 api_token=$2 push_token=$3
+  ( umask 077; mkdir -p "$dir" )
+  chmod 700 "$TOKEN_ROOT" "$dir" 2>/dev/null || true
+  printf 'github.com:\n    oauth_token: %s\n    user: x-access-token\n    git_protocol: https\n' \
+    "$api_token" | write_private "$dir/hosts.yml"
+  # git's credential protocol, served by the helper agent_env sets up.
+  printf 'username=x-access-token\npassword=%s\n' "$push_token" | write_private "$dir/git-credential"
+  printf '%s\n' "$EXPIRES_AT" | write_private "$dir/expires_at"
+}
+
+# Mint fresh tokens for one repo, store them, and revoke the ones they replace.
 refresh_repo() {
-  local repo=$1 dir previous
+  local repo=$1 dir previous previous_push api_token
   dir=$(token_dir_for "$repo")
   previous=$(current_token "$dir")
-  mint_token "$repo" || return 1
-  write_token_files "$dir"
-  [[ -n $previous && $previous != "$TOKEN" ]] && revoke_token "$previous"
-  log "$repo: new token for $BOT_NAME, valid until $EXPIRES_AT."
+  previous_push=$(current_push_token "$dir")
+  mint_token "$repo" "$API_PERMISSIONS" || return 1
+  api_token=$TOKEN
+  if ! mint_token "$repo" "$PUSH_PERMISSIONS"; then
+    revoke_token "$api_token"
+    return 1
+  fi
+  write_token_files "$dir" "$api_token" "$TOKEN"
+  [[ -n $previous && $previous != "$api_token" ]] && revoke_token "$previous"
+  [[ -n $previous_push && $previous_push != "$TOKEN" ]] && revoke_token "$previous_push"
+  TOKEN=$api_token
+  log "$repo: new tokens for $BOT_NAME, valid until $EXPIRES_AT."
+}
+
+# Settings that hclaude passes with --settings, so the session masks the API
+# token: sandboxed commands see a stand-in, and Claude Code's proxy swaps the
+# real token in only on requests to api.github.com. Claude Code honors masking
+# only from user, managed or --settings settings, never from a project.
+session_settings_for() { printf '%s/sessions/%s.json' "$HARNESS_CONFIG_DIR" "$1"; }
+
+write_session_settings() {
+  local repo=$1 dir file
+  dir=$(token_dir_for "$repo")
+  file=$(session_settings_for "$repo")
+  ( umask 077; mkdir -p "$(dirname "$file")" )
+  python3 - "$dir" <<'PY' | write_private "$file"
+import json, sys
+token_dir = sys.argv[1]
+print(json.dumps({
+    # The Read tool is not sandboxed, so it would show the real token: deny it.
+    "permissions": {"deny": [f"Read(/{token_dir}/**)", f"Edit(/{token_dir}/**)"]},
+    "sandbox": {
+        "network": {"tlsTerminate": {}},
+        "credentials": {"files": [{
+            "path": f"{token_dir}/hosts.yml",
+            "mode": "mask",
+            "extract": r"oauth_token:[ \t]*(\S+)",
+            "onExtractNoMatch": "deny",
+            "injectHosts": ["api.github.com"],
+        }]},
+    },
+}, indent=2))
+PY
 }
 
 # Environment for Claude sessions in a project that act as the app. Used for
@@ -250,12 +307,13 @@ agent_env() {
     [GIT_AUTHOR_EMAIL]="$BOT_EMAIL"
     [GIT_COMMITTER_NAME]="$BOT_NAME"
     [GIT_COMMITTER_EMAIL]="$BOT_EMAIL"
-    # git push over HTTPS gets the token from gh. The empty helper first
+    # git push over HTTPS gets the push-only token. The helper only answers
+    # "get", so git never rewrites or erases the file. The empty helper first
     # clears any other helper, so your own credentials are never used.
     [GIT_CONFIG_COUNT]="2"
     [GIT_CONFIG_KEY_0]="credential.https://github.com.helper"
     [GIT_CONFIG_VALUE_0]=""
     [GIT_CONFIG_KEY_1]="credential.https://github.com.helper"
-    [GIT_CONFIG_VALUE_1]="!gh auth git-credential"
+    [GIT_CONFIG_VALUE_1]="!f() { test \"\$1\" = get && cat \"$(token_dir_for "$repo")/git-credential\"; }; f"
   )
 }

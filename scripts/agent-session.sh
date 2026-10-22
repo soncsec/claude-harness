@@ -7,7 +7,7 @@
 # Claude runs, and starts Claude with the same wiring `agent-token.sh
 # configure` writes into settings, so sessions never expire.
 #
-# With the timer installed and the project configured, just run `claude`.
+# With the timer installed and the project configured, just run `hclaude`.
 
 set -euo pipefail
 
@@ -55,11 +55,13 @@ main() {
   agent_env "$repo"
 
   # Keep the token fresh in the background while Claude runs.
+  # Its output goes nowhere, so a sleep that outlives it holds no terminal or pipe open.
   ( while sleep "$REFRESH_SECONDS"; do
-      "$HARNESS_DIR/scripts/agent-token.sh" refresh --repo "$repo" >/dev/null 2>&1 || true
-    done ) &
+      "$HARNESS_DIR/scripts/agent-token.sh" refresh --repo "$repo" || true
+    done ) >/dev/null 2>&1 &
   local refresher=$!
-  trap 'kill "$refresher" 2>/dev/null || true' EXIT
+  # Stop its sleep first, then the loop, so nothing is left running after Claude.
+  trap 'pkill -P "$refresher" 2>/dev/null || true; kill "$refresher" 2>/dev/null || true' EXIT
 
   local key
   for key in "${!AGENT_ENV[@]}"; do
@@ -67,9 +69,13 @@ main() {
   done
   unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN  # only the app's token, never yours
 
-  log "Starting Claude as $BOT_NAME on $repo; the token renews every 20 minutes."
+  # Mask the API token, as hclaude does.
+  write_session_settings "$repo"
+  export CLAUDE_HARNESS_MASKED=1
+
+  log "Starting Claude as $BOT_NAME on $repo; the tokens renew every 20 minutes."
   local status=0
-  claude "${CLAUDE_ARGS[@]}" || status=$?
+  claude --settings "$(session_settings_for "$repo")" "${CLAUDE_ARGS[@]}" || status=$?
   exit "$status"
 }
 

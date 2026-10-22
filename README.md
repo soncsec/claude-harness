@@ -40,7 +40,8 @@ Then follow [docs/getting-started.md](docs/getting-started.md): review, tailor
   to merge, and moves on to the next issue once you merge it.
 - **Reminders:** each session starts with what is waiting on you in GitHub.
 - **Its own GitHub identity:** agents push branches and open pull requests as a
-  GitHub App bot with short-lived, one-repo tokens; you merge.
+  GitHub App bot with short-lived, one-repo tokens; you merge. Sessions started
+  with `hclaude` can use the API token but never read it.
   See [docs/setup/github-app.md](docs/setup/github-app.md).
 - **CI on every pull request:** tests, secret scanning, code and dependency
   scans, all required before merge. See [docs/ci.md](docs/ci.md).

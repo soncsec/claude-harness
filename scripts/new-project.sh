@@ -250,10 +250,13 @@ main() {
   printf 'Protection: %s\n' "$protection"
   printf 'Next:\n'
   (( empty )) || printf '  - Merge the setup pull request (tick the bypass box: you cannot approve your own PR).\n'
+  # hclaude hides the agent's API token; it needs the agent identity configured.
+  local start=claude
+  [[ -f $(session_settings_for "$repo") ]] && start=hclaude
   if (( empty )); then
-    printf '  - cd %s && claude, then type /kickoff to plan the project together\n' "$DIR"
+    printf '  - cd %s && %s, then type /kickoff to plan the project together\n' "$DIR" "$start"
   else
-    printf '  - cd %s && claude, then type /kickoff --adopt to fill in missing docs and plans\n' "$DIR"
+    printf '  - cd %s && %s, then type /kickoff --adopt to fill in missing docs and plans\n' "$DIR" "$start"
   fi
   printf '  - Optional, once per harness version: %s/docs/red-team-checklist.md\n' "$HARNESS_DIR"
 }
