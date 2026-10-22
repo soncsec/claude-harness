@@ -280,7 +280,10 @@ import json, sys
 token_dir = sys.argv[1]
 print(json.dumps({
     # The Read tool is not sandboxed, so it would show the real token: deny it.
-    "permissions": {"deny": [f"Read(/{token_dir}/**)", f"Edit(/{token_dir}/**)"]},
+    # Only hosts.yml: Claude Code also turns Read denies into sandbox read denies,
+    # and git must still read the push token next to it. (In the sandbox the mask
+    # entry below takes over hosts.yml, so gh keeps working.)
+    "permissions": {"deny": [f"Read(/{token_dir}/hosts.yml)"]},
     "sandbox": {
         "network": {"tlsTerminate": {}},
         "credentials": {"files": [{

@@ -16,8 +16,6 @@
       "Read(~/.kube/**)",
       "Read(~/.config/gh/**)",
       "Read(~/.config/claude-harness/**)",
-      "Read(~/.cache/claude-harness/**)",
-      "Edit(~/.cache/claude-harness/**)",
       "Read(~/.docker/config.json)",
       "Read(~/.netrc)",
       "Read(~/.pypirc)",

@@ -13,9 +13,13 @@ Notable changes to claude-harness. Projects record which version they run in
   real token only on requests to `api.github.com`. Each project now has two
   tokens: the masked API token (pull requests, issues, CI; read-only on code)
   and a push-only token for `git`, which stays readable because GitHub's git
-  server only accepts HTTP Basic authentication. The Read and Edit tools and the
-  hooks are denied the token folder in every session, and plain `claude`
-  sessions are reminded to use `hclaude`.
+  server only accepts HTTP Basic authentication. The file hook and the Bash
+  guard keep the Read, Edit and search tools and shell commands away from the
+  token folder in every session, and plain `claude` sessions are reminded to
+  use `hclaude`.
+- Fixed before release: the first version also put `Read`/`Edit` deny rules on
+  the token folder in the project settings. Claude Code turns those into
+  sandbox read denies, which broke `gh` and `git push` in every session.
 - **Upgrading:** run `scripts/agent-token.sh configure <project>` again for
   every configured project, then restart its sessions with `hclaude`. Until
   then git uses the API token, which can no longer push.
