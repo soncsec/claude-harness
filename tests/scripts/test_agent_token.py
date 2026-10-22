@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -57,6 +58,7 @@ def env(tmp_path: Path, github) -> dict:
         "CLAUDE_HARNESS_CONFIG_DIR": str(config),
         "CLAUDE_HARNESS_TOKEN_DIR": str(tmp_path / "tokens"),
         "XDG_CONFIG_HOME": str(tmp_path / "xdg-config"),
+        "CLAUDE_HARNESS_BIN_DIR": str(tmp_path / "bin-links"),
         "TMP_ROOT": str(tmp_path),
     }
 
@@ -90,6 +92,10 @@ def token_dir(env: dict, repo: str) -> Path:
     return Path(env["CLAUDE_HARNESS_TOKEN_DIR"]) / repo
 
 
+def session_settings(env: dict, repo: str) -> Path:
+    return Path(env["CLAUDE_HARNESS_CONFIG_DIR"]) / "sessions" / f"{repo}.json"
+
+
 def mode(path: Path) -> int:
     return stat.S_IMODE(path.stat().st_mode)
 
@@ -112,17 +118,26 @@ def test_configure_registers_mints_and_wires_the_project(env, github, tmp_path):
 
     assert "owner/repo" in (Path(env["CLAUDE_HARNESS_CONFIG_DIR"]) / "repos").read_text()
     hosts = token_dir(env, "owner/repo") / "hosts.yml"
-    assert "oauth_token: ghs_FAKE1" in hosts.read_text()
+    assert "oauth_token: ghs_FAKE1" in hosts.read_text()  # the API token, for gh
     assert mode(hosts) == 0o600
-    assert minted_repos(github) == ["repo"]
+    credential = token_dir(env, "owner/repo") / "git-credential"
+    assert credential.read_text() == "username=x-access-token\npassword=ghs_FAKE2\n"  # push
+    assert mode(credential) == 0o600
+    assert minted_repos(github) == ["repo", "repo"]
 
     settings = proj / ".claude" / "settings.local.json"
     data = json.loads(settings.read_text())
     assert data["env"]["GH_CONFIG_DIR"] == str(token_dir(env, "owner/repo"))
     assert data["env"]["GIT_AUTHOR_NAME"] == "test-agent[bot]"
     assert data["env"]["GIT_AUTHOR_EMAIL"] == "4242+test-agent[bot]@users.noreply.github.com"
-    assert data["env"]["GIT_CONFIG_VALUE_1"] == "!gh auth git-credential"
+    assert data["env"]["GIT_CONFIG_VALUE_1"] == (
+        f'!f() {{ test "$1" = get && cat "{credential}"; }}; f'
+    )
     assert mode(settings) == 0o600
+
+    launcher = Path(env["CLAUDE_HARNESS_BIN_DIR"]) / "hclaude"
+    assert launcher.resolve() == REPO / "scripts" / "hclaude.sh"
+    assert session_settings(env, "owner/repo").exists()
 
 
 @pytest.mark.parametrize(
@@ -182,7 +197,7 @@ def test_each_project_gets_its_own_one_repo_token(env, github):
     register(env, "owner/repo", "owner/other")
     result = run(env, "refresh")
     assert result.returncode == 0, result.stderr
-    assert sorted(minted_repos(github)) == ["other", "repo"]
+    assert sorted(minted_repos(github)) == ["other", "other", "repo", "repo"]  # API + push
     first = (token_dir(env, "owner/repo") / "hosts.yml").read_text()
     second = (token_dir(env, "owner/other") / "hosts.yml").read_text()
     assert first != second
@@ -191,11 +206,16 @@ def test_each_project_gets_its_own_one_repo_token(env, github):
 def test_token_request_is_narrowed(env, github):
     register(env, "owner/repo")
     run(env, "refresh")
-    ((*_, body),) = calls(github, "POST")
-    permissions = json.loads(body)["permissions"]
-    assert permissions["contents"] == "write"
-    for forbidden in ("administration", "secrets", "environments", "deployments", "workflows"):
-        assert forbidden not in permissions
+    (*_, api_body), (*_, push_body) = calls(github, "POST")
+    api = json.loads(api_body)["permissions"]
+    push = json.loads(push_body)["permissions"]
+    # The masked API token cannot change code; the readable push token can do nothing else.
+    assert api["contents"] == "read"
+    assert api["pull_requests"] == "write" and api["issues"] == "write"
+    assert push == {"metadata": "read", "contents": "write"}
+    for permissions in (api, push):
+        for forbidden in ("administration", "secrets", "environments", "deployments", "workflows"):
+            assert forbidden not in permissions
 
 
 def test_refresh_sends_a_jwt_and_revokes_the_previous_token(env, github):
@@ -205,9 +225,14 @@ def test_refresh_sends_a_jwt_and_revokes_the_previous_token(env, github):
     assert result.returncode == 0, result.stderr
     for _, _, auth, _ in calls(github, "POST"):
         assert auth.startswith("Bearer ") and auth.count(".") == 2  # the JWT really arrived
-    assert "ghs_FAKE2" in (token_dir(env, "owner/repo") / "hosts.yml").read_text()
-    ((_, path, auth, _),) = calls(github, "DELETE")
-    assert (path, auth) == ("/installation/token", "Bearer ghs_FAKE1")
+    # First refresh: API ghs_FAKE1, push ghs_FAKE2. Second: ghs_FAKE3 and ghs_FAKE4.
+    assert "ghs_FAKE3" in (token_dir(env, "owner/repo") / "hosts.yml").read_text()
+    assert "ghs_FAKE4" in (token_dir(env, "owner/repo") / "git-credential").read_text()
+    deleted = [(path, auth) for _, path, auth, _ in calls(github, "DELETE")]
+    assert deleted == [
+        ("/installation/token", "Bearer ghs_FAKE1"),
+        ("/installation/token", "Bearer ghs_FAKE2"),
+    ]
 
 
 def test_one_failing_project_does_not_stop_the_others(env, github):
@@ -258,6 +283,68 @@ def test_gh_and_git_read_the_project_token(env):
     assert "password=ghs_FAKE1" in answer.stdout
 
 
+def git_env(env: dict, proj: Path) -> dict:
+    """The environment a Claude session in proj gets from its settings.local.json."""
+    settings = json.loads((proj / ".claude" / "settings.local.json").read_text())
+    return {**env, **settings["env"], "GIT_TERMINAL_PROMPT": "0"}
+
+
+def test_git_gets_the_push_token_and_never_the_api_token(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    run(env, "configure", str(proj))
+    answer = subprocess.run(
+        ["git", "credential", "fill"],
+        input="protocol=https\nhost=github.com\n\n",
+        capture_output=True,
+        text=True,
+        env=git_env(env, proj),
+        cwd=proj,
+        check=False,
+    )
+    assert answer.returncode == 0, answer.stderr
+    assert "username=x-access-token\npassword=ghs_FAKE2" in answer.stdout
+    assert "ghs_FAKE1" not in answer.stdout
+
+
+def test_git_never_rewrites_or_erases_the_push_token(env, tmp_path):
+    # A failed push makes git "erase" credentials; the helper answers only "get".
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    run(env, "configure", str(proj))
+    credential = token_dir(env, "owner/repo") / "git-credential"
+    before = credential.read_text()
+    for action in ("erase", "store"):
+        subprocess.run(
+            ["git", "credential", "reject" if action == "erase" else "approve"],
+            input="protocol=https\nhost=github.com\nusername=x-access-token\npassword=other\n\n",
+            capture_output=True,
+            text=True,
+            env=git_env(env, proj),
+            cwd=proj,
+            check=False,
+        )
+    assert credential.read_text() == before
+
+
+def test_session_settings_mask_the_api_token(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    run(env, "configure", str(proj))
+    settings = json.loads(session_settings(env, "owner/repo").read_text())
+    assert mode(session_settings(env, "owner/repo")) == 0o600
+    tokens = token_dir(env, "owner/repo")
+    (entry,) = settings["sandbox"]["credentials"]["files"]
+    assert entry["path"] == str(tokens / "hosts.yml")
+    assert entry["mode"] == "mask"
+    assert entry["onExtractNoMatch"] == "deny"  # fail closed if the file changes shape
+    assert entry["injectHosts"] == ["api.github.com"]
+    # The pattern captures exactly the token in the file the script writes.
+    captured = re.findall(entry["extract"], (tokens / "hosts.yml").read_text())
+    assert captured == ["ghs_FAKE1"]
+    assert settings["sandbox"]["network"]["tlsTerminate"] == {}
+    # The Read tool is not sandboxed, so it must not see the real file.
+    assert f"Read(/{tokens}/**)" in settings["permissions"]["deny"]
+    assert f"Edit(/{tokens}/**)" in settings["permissions"]["deny"]
+
+
 def test_unreachable_github_gives_a_clear_error(env):
     register(env, "owner/repo")
     result = run({**env, "GITHUB_API_URL": "http://127.0.0.1:9"}, "refresh")
@@ -275,8 +362,9 @@ def test_forget_revokes_and_stops_renewing(env, github, tmp_path):
     assert result.returncode == 0, result.stderr
     assert not token_dir(env, "owner/repo").exists()
     assert "owner/repo" not in (Path(env["CLAUDE_HARNESS_CONFIG_DIR"]) / "repos").read_text()
-    ((_, _, auth, _),) = calls(github, "DELETE")
-    assert auth == "Bearer ghs_FAKE1"
+    revoked = sorted(auth for _, _, auth, _ in calls(github, "DELETE"))
+    assert revoked == ["Bearer ghs_FAKE1", "Bearer ghs_FAKE2"]  # API and push tokens
+    assert not session_settings(env, "owner/repo").exists()
 
 
 # --- timer -----------------------------------------------------------------------
@@ -418,3 +506,57 @@ def test_session_needs_a_github_project(env, tmp_path):
     result = run(env, script=SESSION_SCRIPT, cwd=proj)
     assert result.returncode != 0
     assert "origin" in result.stderr
+
+
+# --- hclaude and agent-session.sh mask the API token -----------------------------
+
+HCLAUDE = REPO / "scripts" / "hclaude.sh"
+
+# A stand-in for claude that records how it was started.
+FAKE_CLAUDE = """#!/bin/bash
+printf 'masked=%s args=%s\\n' "${CLAUDE_HARNESS_MASKED:-}" "$*"
+"""
+
+
+def with_fake_claude(env: dict, tmp_path: Path) -> dict:
+    bin_dir = tmp_path / "claude-bin"
+    bin_dir.mkdir(exist_ok=True)
+    (bin_dir / "claude").write_text(FAKE_CLAUDE)
+    (bin_dir / "claude").chmod(0o755)
+    return {**env, "PATH": f"{bin_dir}:{env['PATH']}"}
+
+
+def test_hclaude_starts_claude_with_the_masking_settings(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    run(env, "configure", str(proj))
+    (proj / "src").mkdir()
+    result = run(with_fake_claude(env, tmp_path), "--resume", script=HCLAUDE, cwd=proj / "src")
+    assert result.returncode == 0, result.stderr
+    expected = f"masked=1 args=--settings {session_settings(env, 'owner/repo')} --resume"
+    assert result.stdout.strip() == expected
+
+
+def test_hclaude_runs_through_its_link(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    run(env, "configure", str(proj))
+    link = Path(env["CLAUDE_HARNESS_BIN_DIR"]) / "hclaude"
+    result = run(with_fake_claude(env, tmp_path), script=link, cwd=proj)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.startswith("masked=1 args=--settings ")
+
+
+def test_hclaude_says_so_when_it_cannot_mask(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/unconfigured")
+    result = run(with_fake_claude(env, tmp_path), script=HCLAUDE, cwd=proj)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "masked= args="
+    assert "can read its GitHub token" in result.stderr
+
+
+def test_agent_session_masks_the_api_token_too(env, tmp_path):
+    proj = project(tmp_path, "https://github.com/owner/repo")
+    result = run(with_fake_claude(env, tmp_path), script=SESSION_SCRIPT, cwd=proj)
+    assert result.returncode == 0, result.stderr
+    expected = f"masked=1 args=--settings {session_settings(env, 'owner/repo')}"
+    assert expected in result.stdout
+    assert session_settings(env, "owner/repo").exists()

@@ -112,6 +112,10 @@ BLOCKED = [
     # the GitHub App key folder
     "cat ~/.config/claude-harness/agent-app.pem",
     "ls ~/.config/claude-harness",
+    # the agent's own GitHub tokens
+    "cat ~/.cache/claude-harness/owner/repo/hosts.yml",
+    "cat ~/.cache/claude-harness/owner/repo/git-credential",
+    "grep -r oauth_token ~/.cache/claude-harness",
     # the operator merges pull requests, by every route
     "gh pr merge 5 --merge",
     "gh pr merge 5 --squash --admin",

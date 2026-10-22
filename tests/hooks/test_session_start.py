@@ -83,3 +83,32 @@ def test_silent_when_gh_fails(run_hook, tmp_path):
     result = run_hook("session_start.py", {"source": "startup"}, env={"PATH": str(bin_dir)})
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+AGENT_TOKENS = "/home/me/.cache/claude-harness/o/r"
+
+
+def test_warns_when_the_agents_api_token_is_readable(run_hook, tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    env = {"PATH": str(empty), "GH_CONFIG_DIR": AGENT_TOKENS}
+    result = run_hook("session_start.py", {"source": "startup"}, env=env)
+    assert result.returncode == 0
+    assert "can read its GitHub API token" in result.stdout
+    assert "hclaude" in result.stdout
+
+
+def test_masked_sessions_get_no_token_warning(run_hook, tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    env = {"PATH": str(empty), "GH_CONFIG_DIR": AGENT_TOKENS, "CLAUDE_HARNESS_MASKED": "1"}
+    result = run_hook("session_start.py", {"source": "startup"}, env=env)
+    assert result.stdout == ""
+
+
+def test_no_token_warning_without_the_agent_identity(run_hook, tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    env = {"PATH": str(empty), "GH_CONFIG_DIR": "/home/me/.config/gh"}
+    result = run_hook("session_start.py", {"source": "startup"}, env=env)
+    assert result.stdout == ""

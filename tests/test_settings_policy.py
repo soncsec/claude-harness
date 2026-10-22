@@ -31,6 +31,18 @@ def test_web_fetches_ask_the_operator():
     assert "WebFetch" in ASK
 
 
+@pytest.mark.parametrize(
+    "rule", ["Read(~/.cache/claude-harness/**)", "Edit(~/.cache/claude-harness/**)"]
+)
+def test_agent_tokens_are_closed_to_the_unsandboxed_tools(rule):
+    # gh and git read the tokens inside the sandbox (hclaude masks the API token
+    # there), so the folder must stay sandbox-readable; only the tools are denied.
+    assert rule in DENY
+    assert not any(
+        ".cache/claude-harness" in p for p in SETTINGS["sandbox"]["filesystem"]["denyRead"]
+    )
+
+
 def test_sandbox_is_strict():
     sandbox = SETTINGS["sandbox"]
     assert sandbox["enabled"] is True

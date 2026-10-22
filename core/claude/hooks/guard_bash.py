@@ -91,7 +91,7 @@ RULES: list[tuple[str, re.Pattern[str], str]] = [
             # Backticks count as boundaries too: echo `cat .env`
             r"(?:^|[\s/=<>:(`])\.env(?:\.[\w.-]+|rc)?(?=$|[\s;&|)`])"
             r"|\.ssh(?:/|\b)|\bid_(?:rsa|ed25519|ecdsa|dsa)\b"
-            r"|\.aws/|\.gnupg\b|\.kube/|\.config/gh\b|\.config/claude-harness\b"
+            r"|\.aws/|\.gnupg\b|\.kube/|\.config/gh\b|\.(?:config|cache)/claude-harness\b"
             r"|\.credentials\.json\b|\.netrc\b|\.pypirc\b|\.git-credentials\b"
             r"|\.docker/config\.json\b"
             r"|[\w/.-]+\.(?:pem|key|p12|pfx)(?=$|[\s;&|)`])"

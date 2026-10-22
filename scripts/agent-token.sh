@@ -25,8 +25,10 @@ Usage: scripts/agent-token.sh COMMAND [options]
 
 Commands:
   configure DIR     Set up the project in DIR: find its GitHub repo, start
-                    keeping a token for it, and write DIR/.claude/settings.local.json
+                    keeping its tokens, and write DIR/.claude/settings.local.json
                     (personal, never committed) so Claude sessions there act as the app.
+                    Also links ~/.local/bin/hclaude: start sessions with it to hide
+                    the API token from the agent.
   refresh           Renew the token of every configured project (the timer runs this).
   check             Mint and revoke a token for every configured project.
   status            Show the timer and when each project's token expires.
@@ -46,6 +48,8 @@ DRY_RUN=0
 COMMAND=''
 TARGET=''
 ONLY_REPO=''
+# Where configure links the hclaude launcher.
+BIN_DIR=${CLAUDE_HARNESS_BIN_DIR:-$HOME/.local/bin}
 while (( $# )); do
   case $1 in
     --dry-run) DRY_RUN=1 ;;
@@ -136,9 +140,15 @@ cmd_configure() {
     pairs+=("$key=${AGENT_ENV[$key]}")
   done
 
+  local session_settings launcher
+  session_settings=$(session_settings_for "$repo")
+  launcher="$BIN_DIR/hclaude"
+
   if (( DRY_RUN )); then
     log "Would keep a token for $repo and add to $settings under \"env\":"
     printf '  %s\n' "${pairs[@]}" | sort
+    log "Would write $session_settings (masks the API token in hclaude sessions)"
+    log "Would link $launcher to $HARNESS_DIR/scripts/hclaude.sh"
     return
   fi
 
@@ -164,6 +174,15 @@ with open(path, "w") as fh:
 PY
   chmod 600 "$settings"
   log "Wrote $settings: Claude sessions in $project now act as $BOT_NAME on $repo."
+
+  write_session_settings "$repo"
+  mkdir -p "$BIN_DIR"
+  ln -sfn "$HARNESS_DIR/scripts/hclaude.sh" "$launcher"
+  log "Start sessions there with hclaude ($launcher): it hides the API token from the agent."
+  case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *) printf 'warning: %s is not on your PATH; add it, or run %s directly\n' "$BIN_DIR" "$launcher" >&2 ;;
+  esac
   if git -C "$project" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
      && ! git -C "$project" check-ignore -q "$settings"; then
     printf 'warning: %s is not git-ignored; add .claude/settings.local.json to .gitignore\n' \
@@ -176,7 +195,9 @@ cmd_forget() {
   valid_repo "$repo" || die "usage: agent-token.sh forget owner/name"
   dir=$(token_dir_for "$repo")
   revoke_token "$(current_token "$dir")"
+  revoke_token "$(current_push_token "$dir")"
   rm -rf "$dir"
+  rm -f "$(session_settings_for "$repo")"
   unregister_repo "$repo"
   log "$repo: token revoked and no longer renewed."
   [[ $repo != "$LEGACY_REPO" ]] || log "It is also named in REPO= in $CONFIG_FILE: remove that line too."

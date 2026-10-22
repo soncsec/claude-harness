@@ -9,6 +9,7 @@ it, and prefer adding to a list over removing from one.
 | --- | --- | --- | --- |
 | `.claude/settings.json` | Yes | Operator | Project rules everyone shares |
 | `.claude/settings.local.json` | No (git-ignored) | Operator | Your personal additions on this machine |
+| `~/.config/claude-harness/sessions/<owner>/<repo>.json` | No | `agent-token.sh configure` | Masks the agent's API token in `hclaude` sessions ([setup/github-app.md](setup/github-app.md)) |
 | `~/.claude/settings.json` | No | Operator | Rules for every project on this machine |
 | `.claude/rules/harness.md` | Yes | The harness (every update replaces it) | The rules every agent follows |
 | `CLAUDE.md` | Yes | Operator or agent (reviewed in PR) | Project facts and rules for this project only |

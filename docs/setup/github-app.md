@@ -127,20 +127,28 @@ scripts/agent-token.sh status                     # when does each token expire?
 ```
 
 `configure` finds the project's repo from its `origin` remote (or pass
-`--repo owner/name`), starts keeping a token for it, mints the first one, and
+`--repo owner/name`), starts keeping its tokens, mints the first ones, and
 writes the project's `.claude/settings.local.json`: personal, git-ignored, and
 unwritable by agents. That file points `gh` and `git` at the project's token
 and labels commits as `<app>[bot]`. Your own `gh` in your own terminal is
 unaffected.
 
-Each project gets **its own token, limited to that one repo**, in
+Each project gets **its own two tokens, limited to that one repo**, in
 `~/.cache/claude-harness/<owner>/<repo>/`. An agent working on one project
 cannot touch another.
 
+| Token | Used by | Can | The agent |
+| --- | --- | --- | --- |
+| API token (`hosts.yml`) | `gh` | Pull requests, issues, comments, reading CI; read-only on code | Uses it, but cannot read it in `hclaude` sessions (see below) |
+| Push token (`git-credential`) | `git push` | Push code to branches, nothing else | Can read it; it adds nothing the agent cannot already do, and `main` and tags stay protected |
+
+`configure` also writes a masking settings file for the project and links
+`~/.local/bin/hclaude`, the command to start sessions with.
+
 `install-timer` sets up a systemd user timer. Every 20 minutes, and right after
-login or waking from sleep, it renews every configured project's 1-hour token
-and revokes the previous one. `gh`, and `git` through `gh`, read the token file
-on every command, so running sessions pick up each renewal without restarting.
+login or waking from sleep, it renews every configured project's 1-hour tokens
+and revokes the previous ones. `gh` and `git` read the token files on every
+command, so running sessions pick up each renewal without restarting.
 
 `scripts/agent-token.sh check` mints and revokes a token for every configured
 project: a quick way to prove the key, the config and the installation work.
@@ -156,7 +164,10 @@ The timer picks it up automatically. To stop: `scripts/agent-token.sh forget own
 
 ## Daily use
 
-Just run `claude` in the project. Nothing to restart, nothing to remember.
+Run `hclaude` in the project, instead of `claude`; it takes the same arguments
+(`hclaude --resume`, ...). Nothing to restart, nothing to remember. Plain
+`claude` still works, but the agent can then read its API token, and each
+session starts by reminding you.
 
 - Moved the harness repo? Run `install-timer` again: the timer stores its path.
 - Set up before per-project tokens (your `agent-app.conf` has `REPO=` and
@@ -180,13 +191,31 @@ Once, after setup, in a Claude session in the configured project:
       instead) or check an existing guardrail PR: GitHub shows it needs your
       review.
 - [ ] Ask Claude to read `~/.config/claude-harness/agent-app.pem`: blocked.
+- [ ] In an `hclaude` session, ask Claude to run
+      `sed -n 's/^ *oauth_token: *//p' "$GH_CONFIG_DIR/hosts.yml" | cut -c1-6`:
+      it shows a stand-in such as `fake_v`, not `ghs_`. Then ask it to read
+      that file with its Read tool: blocked.
 - [ ] Merge the test PR yourself with the normal **Merge** button.
 
-## Known limit (stage 1)
+## How the API token stays hidden
 
-The agent can read its current token from the token file. That token is
-limited to one repo, the permissions above and at most 1 hour, it is revoked
-when the next one is minted, and the rules stop it changing `main` or the
-guardrail files without you. Stage 2 will hide the token from the agent entirely (sandbox
-credential masking, or a GitHub MCP server that mints tokens itself) once that
-is tested.
+`hclaude` starts Claude Code with the project's masking settings
+(`~/.config/claude-harness/sessions/<owner>/<repo>.json`, passed with
+`--settings`). Inside the sandbox, `hosts.yml` shows a stand-in instead of the
+token. Claude Code's proxy, which runs outside the sandbox, swaps the real token
+in only on requests to `api.github.com`. So the agent can open pull requests and
+read CI, but cannot print, copy or send the token anywhere: a leaked stand-in is
+worthless outside the session.
+
+- **Masking limits reading, not use.** Within the session, the agent can still
+  call GitHub's API with the token's permissions (listed above).
+- **Pushes use the second token.** GitHub's git server accepts only HTTP Basic
+  authentication, which base64-encodes the token, so no proxy can swap a
+  stand-in there. The push token stays readable, and can only push code to
+  branches.
+- **Needs:** Claude Code 2.1.221 or later, on Linux; on macOS and Windows,
+  masking hides the file entirely, so `gh` would fail. The settings turn on the
+  proxy's HTTPS termination (`tlsTerminate`, still marked experimental), and
+  only for `hclaude` sessions, never for your other projects. Claude Code
+  honors masking only from your user settings or `--settings`, never from a
+  project's own settings, which is why it needs a launcher.
