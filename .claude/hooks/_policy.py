@@ -48,8 +48,13 @@ SECRET_NAME_PATTERNS = (
     ".credentials.json",
 )
 
-# Secret locations in the user's home directory.
-SECRET_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".config/gh", ".config/claude-harness")
+# Secret locations in the user's home directory. ~/.cache/claude-harness holds the
+# agent's GitHub tokens: gh and git read them inside the sandbox (hclaude masks the
+# API token there), but the Read, Edit and search tools never do.
+SECRET_HOME_DIRS = (
+    ".ssh", ".aws", ".gnupg", ".kube", ".config/gh", ".config/claude-harness",
+    ".cache/claude-harness",
+)  # fmt: skip
 SECRET_HOME_FILES = (".docker/config.json", ".claude/.credentials.json")
 
 PROPOSAL_HINT = (
