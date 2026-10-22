@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-SETTINGS = json.loads(
-    (Path(__file__).resolve().parents[1] / "core" / "claude" / "settings.json").read_text()
-)
+ROOT = Path(__file__).resolve().parents[1]
+SETTINGS = json.loads((ROOT / "core" / "claude" / "settings.json").read_text())
+_SPEC = importlib.util.spec_from_file_location("_policy", ROOT / "core/claude/hooks/_policy.py")
+POLICY = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(POLICY)
 DENY = SETTINGS["permissions"]["deny"]
 ASK = SETTINGS["permissions"]["ask"]
 
@@ -31,16 +34,16 @@ def test_web_fetches_ask_the_operator():
     assert "WebFetch" in ASK
 
 
-@pytest.mark.parametrize(
-    "rule", ["Read(~/.cache/claude-harness/**)", "Edit(~/.cache/claude-harness/**)"]
-)
-def test_agent_tokens_are_closed_to_the_unsandboxed_tools(rule):
+def test_agent_tokens_stay_readable_inside_the_sandbox():
     # gh and git read the tokens inside the sandbox (hclaude masks the API token
-    # there), so the folder must stay sandbox-readable; only the tools are denied.
-    assert rule in DENY
+    # there). Claude Code turns Read and Edit deny rules into sandbox denies too,
+    # so no rule may name the token folder: it broke gh and git push live. The
+    # file hook keeps the Read, Edit and search tools away instead.
+    assert not any(".cache/claude-harness" in rule for rule in DENY)
     assert not any(
         ".cache/claude-harness" in p for p in SETTINGS["sandbox"]["filesystem"]["denyRead"]
     )
+    assert ".cache/claude-harness" in POLICY.SECRET_HOME_DIRS
 
 
 def test_sandbox_is_strict():

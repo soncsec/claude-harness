@@ -341,8 +341,9 @@ def test_session_settings_mask_the_api_token(env, tmp_path):
     assert captured == ["ghs_FAKE1"]
     assert settings["sandbox"]["network"]["tlsTerminate"] == {}
     # The Read tool is not sandboxed, so it must not see the real file.
-    assert f"Read(/{tokens}/**)" in settings["permissions"]["deny"]
-    assert f"Edit(/{tokens}/**)" in settings["permissions"]["deny"]
+    # Exactly that file: Claude Code turns Read denies into sandbox read denies too,
+    # and a wider one would hide the push token from git (it broke pushes live).
+    assert settings["permissions"]["deny"] == [f"Read(/{tokens}/hosts.yml)"]
 
 
 def test_unreachable_github_gives_a_clear_error(env):
